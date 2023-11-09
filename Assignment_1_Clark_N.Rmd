@@ -4,7 +4,6 @@ author: "Prepared By: Clark P. Necciai Jr."
 date: "`r format(Sys.Date(), '%B %d, %Y')`"
 output:
   pdf_document:
-    df_print: kable
     toc: yes
     number_sections: yes
     toc_depth: '3'
@@ -131,7 +130,7 @@ for (i in 1:nrow(CBS)) {
 CBS$hour <- factor(newHours)
 ```
 
-```{r fig.height=6, fig.width=6}
+```{r fig.height=4, fig.width=6}
 #Visualize final data types in dataset
 vis_dat(CBS) + theme(axis.title.y = element_blank(),
                      axis.text.x.bottom = element_blank()) +
@@ -737,15 +736,23 @@ CBS[!(CBS$day %in% c("Sunday", "Saturday")),] %>%
 
 #### Predictor Variables  
 
-##### `date`   
+##### `date`  
 
-There being **731** distinct dates could have severe impacts, mainly overfitting, when regressing our target variables. The only unique piece of information provided by `date` is the day of the month. All other information provided by `date` is captured by our `year` and `month` variable. To prevent these excessive categories from being created, we will extract the day of the month provided by the `date` variable, but eliminate the `date` variable from our analysis. 
+We speculated that the creation of **731** distinct variables representing `date` could have severe impacts on model performance when regressing our target variable. The only unique piece of information provided by `date` is the day of the month. All other information is already found in our `year` and `month` variable. 
+
+Our team experimented with the inclusion of a variable representing this day of the month(`day_of_month`) in an attempt to achieve better overall model performance. After extensive testing, we found that *exclusion* of this variable and of `date` yielded better performance. 
+
+While inclusion of the variables helped explain some error(RSS), the trade-off of having to create additional variables to accommodate the model fitting process ultimately proved detrimental to overall performance. 
+
+It is for this reason, our team has decided to remove the `date` variable from the modeling process entirely. 
+
 
 ```{r}
-CBS$day_of_month <- factor(day(CBS$date))
+#Removal of Date - Negatively Impacted Model Performance
 CBS <- CBS %>% dplyr::select(-date)
 ``` 
 
+##### Dummy Variable Creation 
 
 ```{r}
 #Create Dummy Coding here for these variables 
@@ -753,15 +760,12 @@ library(fastDummies)
 
 #season - year - month - hour - day  - weather - day_of_month
 CBS <- dummy_cols(CBS, select_columns = 
-                    c("season", "year", "month", "hour", "day", "weather", "day_of_month"),
+                    c("season", "year", "month", "hour", "day", "weather"),
                   remove_first_dummy = T) %>%
-  dplyr::select(-c(season, year, month, hour, day, weather, day_of_month))
+  dplyr::select(-c(season, year, month, hour, day, weather))
 
 #Coerce Logical Types to Numeric
 CBS <- CBS %>% mutate_if(is.logical, as.numeric)
-
-#Inspect Dataset
-CBS %>% glimpse
 ```
 
 
@@ -872,7 +876,7 @@ In order to satisfy the assumptions of linear regression, a transformation on ea
 ```{r}
 library(MASS)
 #Box-cox Transformation on count_rentals
-b <- boxcox(lm(CBS$count_rentals ~ 1), plotit = F)
+b <- boxcox(lm(CBS$count_rentals ~ 1), plotit = F, lambda = seq(-3,3, .05))
 lambda <- b$x[which.max(b$y)]
 box_total <- (CBS$count_rentals ^ lambda - 1) / lambda
 #Log Transformation
@@ -904,11 +908,11 @@ ggTrans <- function(var, myTitle) {
 
 ```{r}
 #Inspect Distributions
-ggTrans(box_total, "Box-Cox Transformation")
-ggTrans(log_total, "Log Transformation")
-ggTrans(sqrt_total, "Square Root Transformation")
 ggTrans(cube_root_total, "Cube Root Transformation")
+ggTrans(box_total, "Box-Cox Transformation")
 ggTrans(fourth_root_total, "Fourth Root Transformation")
+ggTrans(sqrt_total, "Square Root Transformation")
+ggTrans(log_total, "Log Transformation")
 ```
 
 ```{r}
@@ -939,7 +943,7 @@ df_vif %>% arrange(desc(VIF))
 ```{r fig.height=5, fig.width=8.5}
 library(leaps)
 
-OLS.regback <- leaps::regsubsets(cube_root_total ~ . - count_rentals - temp - workingday - season_Summer, train, method = "seqrep", nvmax = 70)
+OLS.regback <- leaps::regsubsets(cube_root_total ~ . - count_rentals - temp - workingday , train, method = "seqrep", nvmax = 70)
 
 OLSregbacksum <- summary(OLS.regback)
 
@@ -951,7 +955,7 @@ combined_df <- data.frame(
   BIC = unlist(bicmat)
 )
 
-combined_df
+combined_df[38:44,]
 
 par(mfrow = c(1,2))
 plot(OLSregbacksum$adjr2, xlab = "Number of Variables",
@@ -959,13 +963,13 @@ plot(OLSregbacksum$adjr2, xlab = "Number of Variables",
     cex.main = 1.15, cex.lab = 1, cex.axis = 1.05, font.axis = 2,
     font.lab = 2, panel.first = grid(nx = NULL, ny = NULL, col = "gray",
         lty = 2))
-points(39, OLSregbacksum$adjr2[39], col = "#336699", cex = 2, pch = 20)
+points(41, OLSregbacksum$adjr2[41], col = "#336699", cex = 2, pch = 20)
 
 plot(OLSregbacksum$bic, xlab = "Number of Variables", ylab = "BIC",
     type = "l", lwd = 1.5, cex.main = 1.15, cex.lab = 1, cex.axis = 1.05,
     font.axis = 2, font.lab = 2, main = "Number of Variables Vs. BIC",
     panel.first = grid(nx = NULL, ny = NULL, col = "gray", lty = 2))
-points(39, OLSregbacksum$bic[39], col = "#336699", cex = 2, pch = 20)
+points(41, OLSregbacksum$bic[41], col = "#336699", cex = 2, pch = 20)
 ```
 
 ```{r}
@@ -993,9 +997,9 @@ equation <- paste("y =", intercept_coefficient, "+", paste(named_coefficients, v
 
 
 ```{r}
+#---Prepare Final Dataset---  
 #Extract the best stepwise variables from train
 final_mod_vars <- named_coefficients %>% names()
-
 vars <- train %>% names()
 
 #Fix "`" and then return list of appropriate vars
@@ -1004,29 +1008,27 @@ for (i in 1:length(final_mod_vars)) {
   var_to_list = str_replace_all(final_mod_vars[i], "`", "" )
   variables_for_selection = c(variables_for_selection, var_to_list)
 }
-```
 
-```{r}
-#Final train df of best variables from stepwise 
+#Prepare Final Training Dataset Based on Selected Variables
 train_final <- train %>% select_if(vars %in% variables_for_selection)
 train_final <- train_final %>% bind_cols(train$cube_root_total)
-train_final <- train_final %>% rename(cube_root_total = "...40")
+colname = train_final %>% names()
+colname[length(colname)]
+train_final <- train_final %>% rename(cube_root_total = colname[length(colname)])
+train_final %>% glimpse()
 ```
 
 
+
 ```{r}
+#Train Final Model - Success (Same coef as original)
 stepwise_model <- lm(cube_root_total ~ . ,data = train_final)
-```
 
-
-
-```{r}
 #Make Predictions
 pred_values_total_rentals <- predict(stepwise_model, newdata = test) %>% data.frame()
 pred_values_total_rentals$fit = (pred_values_total_rentals$.)^3
 pred_values_total_rentals$obs = (test$cube_root_total)^3
 
-library(car)
 #Return Metrics
 metrics <- function(y_pred, y_true){
  rmse <- RMSE(y_pred, y_true)
@@ -1042,38 +1044,45 @@ metrics <- function(y_pred, y_true){
  df <- df %>% rename(Test_Error_Metrics = ".")
  return (df)
 }
-
-#print(paste0("MSE: ", round(mse, 6)))
-#print(paste0("RMSE: ", round(rmse, 6)))
-#print(paste0("MAE: ", round(mae, 6)))
-#print(paste0("Correlation: ", round(corPredAct, 6)))
-#print(paste0("R^2 between y_pred & y_true: ", round(corPredAct^2, 6)))
-model_metrics_df = metrics(y_pred = pred_values_total_rentals$fit, y_true = pred_values_total_rentals$obs)
-
-model_metrics_df
+model_metrics_df = metrics(y_pred = pred_values_total_rentals$fit,
+                           y_true = pred_values_total_rentals$obs)
 ```
 
 ```{r fig.height=5, fig.width=5}
 #Total Rentals Predicts vs. Observed Values
-ggplot(pred_values_total_rentals, aes(x=obs, y=fit)) +
+ggplot(pred_values_total_rentals, aes(x=fit, y=obs)) +
   geom_point(aes(color = abs(obs - fit)), size = 3, alpha = 0.6) + 
   geom_abline(intercept=0, slope=1, linetype="dashed", color="red") +
   scale_color_viridis_c(option = "A", direction = -1) + 
   labs(
     title = "Actual vs Predicted Number of Total Rentals",
-    subtitle =  paste("Expected Average Error from Prediction: ", round(rmse_total_rentals,2), "Total Rentals"),
-    x = "Actual Number of Total Rentals",
-    y = "Predicted Number of Total Rentals",
-    color = "Residual Magnitude")
+    y = "Actual Number of Rentals",
+    x = "Predicted Number of Rentals",
+    color = "Residual Magnitude") +
+  scale_x_continuous(breaks = seq(0, 1000, 250), labels = seq(0,1000,250)) +
+   scale_y_continuous(breaks = seq(0, 1000, 250), labels = seq(0,1000,250))
 ```
 
+```{r}
+#Final Model Diagnostics
+plot(stepwise_model)
+```
+
+```{r}
+#Test Error Metrics
+model_metrics_df
+```
+
+```{r fig.height=6, fig.width=9}
+library(coefplot)
+coefplot::coefplot(stepwise_model)
+```
 
 # Conclusions and Recommendations
 
 \pagebreak
 
 # Appendix 
-
 
 ```{r,echo=FALSE, include = TRUE, out.width='.49\\linewidth',fig.show='hold',fig.align='center', fig.cap="Cube-root transformation applied to target, `count_rentals` to approximate normality"}
 #fig.1
