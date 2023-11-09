@@ -1,0 +1,1086 @@
+---
+title: "Capital Bike Share Predictive Model Report"
+author: "Prepared By: Clark P. Necciai Jr."
+date: "`r format(Sys.Date(), '%B %d, %Y')`"
+output:
+  pdf_document:
+    df_print: kable
+    toc: yes
+    number_sections: yes
+    toc_depth: '3'
+fontsize: 12pt
+geometry: margin=.80in
+header-includes:
+- \usepackage{setspace}
+- \onehalfspacing
+linkcolor: blue
+---
+
+```{r setup, echo=FALSE, include=FALSE, message=FALSE, warning=FALSE}
+#Default Setup
+knitr::opts_chunk$set(include = FALSE, echo = FALSE, tidy=TRUE, cache=FALSE, message=FALSE, warning=FALSE,tidy.opts=list(width.cutoff=55, keep.blank.line=FALSE),fig.align='center', fig.width=3.50, fig.height=3.50, dpi = 300)
+```  
+
+\pagebreak   
+
+```{r}
+library(visdat)
+library(car)
+library(corrplot)
+library(e1071) #skewness()
+library(tidyverse)
+library(ggfortify) #use for autoplot diagnostics
+
+#Set default theme for ggplot
+theme_set(theme_minimal()) 
+```
+
+
+
+# Executive Summary   
+
+|       Capital Bike Share provides a network of multi-purpose bicycles to the denizens of the Washington D.C. Metropolitan region. We have been approached by Capital Bike Share to delve into their hour-by-hour observations over the 2011 and 2012 years Preliminary insights into the dataset provided to us from Capital Bike Share revealed that demand for usage of these bicycles can be affected by a variety of noteworthy, influential factors.
+
+# Problem Statement  
+
+|       We have been tasked with identifying the most influential variables relative to their predictive power affecting the amount of total hour-by-hour bicycle rentals. Beginning with an exploratory data analysis and inspection of our dataset, we aim to systematically determine these variables with respect to their predictive power through a well-formulated, multiple linear regression model.   
+
+|       Our modeling process will culminate in a model which will not only accurately predict rental demand, but simultaneously provide an assumption-verified, statistical performance evaluation confirming our models' reliability. Below we provide the methodology of our approach, beginning with an inspection and analysis of our data, followed by our modeling selection strategy and diagnostic testing to ensure model generalizability. Finally, we conclude with our recommendations and takeaways.   
+
+# Methodology
+
+## Data Preprocessing     
+
+We began our approach by taking an overview of the integrity of our dataset. We discovered no missing values nor duplicated observations. We did, however, note variables which would be irrelevant to the overall analysis and took steps to filter out these irrelevant features. 
+
+
+Notes: Variables were renamed for descriptive clarity. No missing nor duplicate data detected. We reevaluated each variables underlying data type corresponding values, and when necessary, replaced each with more appropriate types and corresponding values. [Explain why you did this?] Make note of the changes that happened as a result and the final dimensionality of the dataset after pre-processing.
+
+```{r}
+#Read In Dataset & Initial Look
+CBS <- read.csv("Capital Bike Sharing data by hour.csv")
+CBS %>% glimpse()
+``` 
+
+```{r}
+#Dropping Variables Irrelevant to Analysis
+CBS <- CBS %>% dplyr::select(-c("instant", "casual", "registered"))
+
+
+#Rename Variables for descriptive clarity
+CBS <- CBS %>% rename(date = dteday,
+                      year = yr,
+                      month = mnth,
+                      hour = hr,
+                      day = weekday,
+                      weather = weathersit,
+                      count_rentals = cnt)
+
+CBS %>% glimpse()
+```
+
+```{r}
+#Visualize for Missing Data
+vis_miss(CBS, sort_miss = T) + 
+  labs(y = "NA Values") +
+  theme(axis.text.x.bottom = element_text(angle = 60, vjust = 0)) +
+  coord_flip()
+```
+
+```{r}
+#Distinct Row Check - Exclude ID from search
+distinctCheck <- CBS[,2:ncol(CBS)]
+duplicates <- CBS[which(duplicated(distinctCheck)), ]
+if ((nrow(duplicates)) == 0) {
+  print("No duplicates detected") }
+```
+
+```{r}
+#Reevaluate data types
+CBS$date <- as.Date(CBS$date)
+CBS$season <- factor(CBS$season, labels = c("Winter", "Spring", "Summer", "Fall"))
+CBS$year <- factor(CBS$year, labels = c("2011", "2012"))
+CBS$month <- factor(CBS$month, labels = c("Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                                       "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"))
+CBS$holiday <- as.logical(CBS$holiday)
+CBS$day <- factor(CBS$day, labels = c("Sunday", "Monday", "Tueday", "Wednesday", "Thursday", "Friday", "Saturday"))
+CBS$workingday <- as.logical(CBS$workingday)
+CBS$weather <- factor(CBS$weather, labels = c("Type 1", "Type 2", "Type 3", "Type 4"))
+
+#Function - Redefine Int Hour Values to Factor Values
+reHour <- function(hourInteger) {
+  stringHour = ""
+  if (hourInteger == 0) {
+    return ("12:00AM")
+  } else if (hourInteger > 0 & hourInteger < 12) {
+    stringHour = paste(hourInteger, ":00AM", sep = "")
+  } else if (hourInteger == 12) {
+    return ("12:00PM")
+  } else {
+    hourInteger = hourInteger - 12
+    stringHour = paste(hourInteger, ":00PM", sep = "")
+  }
+  return (stringHour)
+}
+
+#Retrieve New Values
+newHours <- c()
+for (i in 1:nrow(CBS)) {
+  newHours <- c(newHours, reHour(CBS$hour[i]))
+}
+CBS$hour <- factor(newHours)
+```
+
+```{r fig.height=6, fig.width=6}
+#Visualize final data types in dataset
+vis_dat(CBS) + theme(axis.title.y = element_blank(),
+                     axis.text.x.bottom = element_blank()) +
+  labs(title = "Data Types of Capital Bike Share Dataset") +
+  scale_fill_brewer(palette = 2)
+```
+
+```{r}
+### Current Dimensionality of Capital Bike Share Dataset
+print(paste("Number of observations/rows: ", dim(CBS)[1]))
+print(paste("Number of columns/variables: ", dim(CBS)[2]))
+```
+
+## Exploratory Data Analysis   
+
+## Univariate Analysis 
+
+### Target Variables   
+
+Each of our three target variables could be seen to have vastly positively skewed distributions. 
+
+```{r, warning = FALSE}
+#Summary Statistics for Continuous Variables
+numSummary = function(var, rowname) {
+  tab = data.frame(Mean = mean(var) %>% round(2),
+           Median = median(var),
+           StdErr = sd(var) %>% round(2),
+           Skew = skewness(var) %>% round(2),
+           Q1 = quantile(var, .25),
+           Q3 = quantile(var, .75),
+           IQR = IQR(var),
+           Min = min(var),
+           Max = max(var))
+  rownames(tab) = rowname
+  return(tab)
+}
+```
+
+```{r}
+#Retrieve summary statistics for count_rentals
+results = numSummary(CBS$count_rentals, "count_rentals")
+results
+
+#count_rentals distribution
+CBS %>% ggplot(aes(count_rentals)) +
+  geom_histogram(aes(y = after_stat(density)),fill = "darkblue", color = "black", alpha = 0.6) +
+  geom_density(adjust = 2) +
+  labs(x = "Total Number of Rentals", y = "Density",
+       title = "Distribution of `count_rentals`",
+       subtitle = paste("Skewness Value: ", results$Skew)) +
+  theme(
+    plot.title = element_text(hjust = 0, face = "bold", size = 12),
+    axis.title.x = element_text(size = 8, color = "black"),
+    axis.title.y = element_text(size = 8, color = "black"),
+    axis.text.x = element_text(size = 8, color = "black"),
+    axis.text.y = element_text(size = 8, color = "black")
+  )
+```
+
+### Predictor Variables   
+
+#### Categorical Variables
+
+##### `date` 
+
+An inspection of the `date` variable's distribution revealed that not every discrete value of date has an expected equivalent number of hourly interval measurements. For the **731** distinct date values present in our data set, when grouped by date, the majority of each discrete date contained twenty-four or twenty-three of the expected hourly observations. However, fourteen of the dates contained less and in some cases contained a mere single hourly observation, which in total equated to **233** hours worth of missing observations.  While the fact that these distinct dates have missing hour-to-hour observations, it does not immediately follow that these observations are necessarily outliers. However, it should be noted that Capital Bike Shares' hour-to-hour observational system has hourly gaps, which would otherwise provide useful descriptive and predictive analytics. 
+
+```{r}
+# Distinct Values per Variable
+print(paste("Number of Distinct Dates: ", n_distinct(CBS$date)))
+
+#Observe Low Frequency of some particular dates
+low_count_obs <- CBS %>% group_by(date) %>%
+  summarise(count_hour_obs = n()) %>%
+  filter(count_hour_obs < 23)
+
+print(low_count_obs)
+print(paste(sum(low_count_obs$count_hour_obs), "hours worth of missing observations."))
+```
+
+```{r fig.height=4, fig.width=6}
+#Display those date in distribution with fewer counts of hourly observations
+CBS %>% group_by(date) %>% 
+  mutate(dateCount = n()) %>% 
+  filter(dateCount < 23) %>%
+  ggplot(mapping = aes(x = fct_reorder((as.character(date)), desc(dateCount)))) +
+  geom_bar(color = "black", mapping = aes(fill = fct_reorder(as.factor(date), desc(dateCount)))) +
+  geom_text(stat = "count", aes(label = after_stat(count)), nudge_y = 1, size = 2) +
+  scale_fill_viridis_d("Date", option = "magma") +
+  guides(fill = "none") +
+  labs(x = "Date",
+       caption = "Dates on the right side of the chart, such as 2012-10-29 and 2011-01-27, correspond to very few observations in the entire data set.",
+       y = "Number of Observations",
+       title = "Dates with Missing Hourly Observations") +
+  theme(axis.text.x = element_text(angle = 35),
+        plot.caption = element_text(size = 6))
+
+#Decide whether or not to include these observations at a later time...
+CBS[CBS$date %in% c(low_count_obs$date),]
+```
+ 
+##### `season`   
+
+The seasonal distribution with regard to the number of recorded observations between Fall, Winter, Spring, and Summer revealed only a slight imbalance. Fall contained the fewest of these with 4232 observations, Winter with 4242 observations, Spring with 4409 observations, and Summer contained the most with 4496 observations. As a whole, the  distribution was evenly distributed with each season containing approximately within +/- 1% of a quarter of the observations as would be expected. 
+
+```{r}
+print(paste("Percentages of seasons:"))
+(prop.table(table(CBS$season)) * 100) %>% round(2)
+
+CBS %>% 
+  group_by(season)%>%
+  mutate(countSeason = n()) %>%
+  ggplot(mapping = aes(x = fct_reorder((season), desc(countSeason)))) +
+  geom_bar(color = "black", mapping = aes(fill = fct_reorder(as.factor(season), desc(countSeason)))) +
+  geom_text(stat = "count", aes(label = after_stat(count)), nudge_y = 200, size = 2) +
+  scale_fill_viridis_d("Month", option = "magma") +
+  labs(title = "Distribution of `season`",
+       x = "",
+       y = "Observations") +
+  theme(
+    plot.title = element_text(hjust = 0, face = "bold", size = 12),
+    axis.title.x = element_text(size = 8, color = "black"),
+    axis.title.y = element_text(size = 8, color = "black"),
+    axis.text.y = element_text(size = 8, color = "black"),
+    ) +
+  guides(fill = "none") +
+  coord_flip()
+```
+
+##### `year`    
+
+The distribution of observations for the two recorded years, 2011 and 2012, were nearly exact at 49.74% and 50.26%, respectively.
+
+```{r}
+print(paste("Percentages of Observations for years:"))
+(prop.table(table(CBS$year)) * 100) %>% round(2)
+
+CBS %>% 
+  ggplot(mapping = aes(x = year, fill = year)) +
+  geom_bar(color = "black") +
+  geom_text(stat = "count", aes(label = after_stat(count)), nudge_y = 450, size = 2) +
+  scale_fill_viridis_d("Year", option = "magma") +
+  labs(title = "Distribution of Observations by `year`",
+       x = "",
+       y = "") +
+  theme(
+    plot.title = element_text(hjust = 0, face = "bold", size = 12),
+    axis.title.x = element_text(size = 8, color = "black"),
+    axis.title.y = element_text(size = 8, color = "black"),
+    axis.text.y = element_text(size = 8, color = "black")) +
+  guides(fill = "none") +
+  coord_flip()
+```
+
+##### `month`    
+
+Across all monthly grouped observations, the distribution of the `month` variable was approximately uniform. However, the month of February appeared unique with it having the fewest number of observations of 1341. May had the highest count of recorded observations with 1488 recorded. All other months' counts of observations fell within these two counts of 1341 to 1488 (about 8% each of total observations). 
+
+```{r fig.width=4.7}
+print(paste("Percentages of months:"))
+(prop.table(table(CBS$month)) * 100) %>% round(2)
+
+CBS %>% 
+  group_by(month) %>%
+  mutate(countMonth = n()) %>%
+  ggplot(mapping = aes(x = fct_reorder((month), desc(countMonth)))) +
+  geom_bar(color = "black", mapping = aes(fill = fct_reorder(as.factor(month), desc(countMonth)))) +
+  geom_text(stat = "count", aes(label = after_stat(count)), nudge_y = 75, size = 2) +
+  scale_fill_viridis_d("Month", option = "magma") +
+  labs(title = "Distribution of `month`",
+       x = "",
+       y = "Observations") +
+  theme(
+    plot.title = element_text(hjust = 0, face = "bold", size = 12),
+    axis.title.x = element_text(size = 8, color = "black"),
+    axis.title.y = element_text(size = 8, color = "black"),
+    axis.text.y = element_text(size = 8, color = "black"),
+    ) +
+  guides(fill = "none") +
+  coord_flip()
+``` 
+
+
+##### `hour`    
+
+When observing a sorted hourly distribution from 12:00AM to 11:00PM, we found that the count of each distinct hour were nearly equal. However, a trend in the number of observations can be seen with a decrease beginning at approximately 1:00AM and continuing until 3:00AM when it then increases through 6:00AM. 
+
+```{r}
+#hour
+print(paste("Percentages of Hourly Observations:"))
+(prop.table(table(CBS$hour)) * 100) %>% round(2)
+
+hours <- CBS$hour %>% unique() %>% as.vector()
+hourDF <- CBS %>% 
+  group_by(hour) %>% 
+  transmute(hourCount = n()) %>% 
+  mutate(check = ifelse(hourCount <= 725, TRUE, FALSE))
+
+hourDF %>% 
+  ggplot(mapping = aes(x = factor(hour, levels = hours))) +
+  geom_bar(color = "black", aes(fill = check), alpha = .4) +
+  geom_text(stat = "count", aes(label = after_stat(count)), nudge_y = 40, size = 2.5) +
+  labs(title = "Distribution of `hour`",
+       x = "",
+       y = "") +
+  scale_fill_viridis_d()+
+  theme(
+    plot.title = element_text(hjust = 0, face = "bold", size = 12),
+    plot.caption = element_text(size = 8),
+    axis.title.x = element_text(size = 8, color = "black"),
+    axis.title.y = element_text(size = 8, color = "black"),
+    axis.text.x = element_text(angle = 85, vjust = 0.8),
+    axis.text.y = element_text(size = 8, color = "black"),
+    ) +
+  guides(fill = "none")
+```
+
+##### `day`     
+
+The value counts for the `day` variable were all nearly approximate.
+
+```{r}
+print(paste("Percentages of days:"))
+(prop.table(table(CBS$day)) * 100) %>% round(2)
+
+CBS %>% 
+  group_by(day) %>%
+  mutate(countDay = n()) %>%
+  ggplot(mapping = aes(x = fct_reorder((day), desc(countDay)))) +
+  geom_bar(color = "black", mapping = aes(fill = fct_reorder(as.factor(day), desc(countDay)))) +
+  geom_text(stat = "count", aes(label = after_stat(count)), nudge_y = 120, size = 2) +
+  scale_fill_viridis_d("Month", option = "magma") +
+  labs(title = "Distribution of `day`",
+       x = "",
+       y = "Observations") +
+  theme(
+    plot.title = element_text(hjust = 0, face = "bold", size = 12),
+    axis.title.x = element_text(size = 8, color = "black"),
+    axis.title.y = element_text(size = 8, color = "black"),
+    axis.text.y = element_text(size = 8, color = "black"),
+    ) +
+  guides(fill = "none") +
+  coord_flip()
+```
+
+##### `weather`    
+
+We found an immediately noticeable yet unsurprising distribution with the `weather` variable. **11413** of the observations were of Type 1, indicating the majority of our observations were recorded in favorable weather conditions. **4544** observations were of Type 2 and **1419** were of Type 3. A mere **3** observations were recorded for Type 4.
+
+```{r}
+#weather
+print(paste("Percentages of weather Types:"))
+(prop.table(table(CBS$weather)) * 100) %>% round(2)
+
+CBS %>% 
+  group_by(weather) %>%
+  mutate(countWeather = n()) %>%
+  ggplot(mapping = aes(x = fct_reorder((weather), desc(countWeather)))) +
+  geom_bar(color = "black", mapping = aes(fill = fct_reorder(as.factor(weather), desc(countWeather)))) +
+  geom_text(stat = "count", aes(label = after_stat(count)), nudge_y = 500, size = 2.5) +
+  scale_fill_viridis_d("Month", option = "magma") +
+  labs(title = "Distribution of `weather`",
+       x = "",
+       y = "Observations") +
+  theme(
+    plot.title = element_text(hjust = 0, face = "bold", size = 12),
+    plot.subtitle = element_text(size = 8),
+    axis.title.x = element_text(size = 8, color = "black"),
+    axis.title.y = element_text(size = 8, color = "black"),
+    axis.text.y = element_text(size = 8, color = "black"),
+    ) +
+  guides(fill = "none") +
+  coord_flip()
+```
+
+#### Continuous Variables  
+
+##### `temp`    
+
+```{r}
+#Retrieve summary statistics for temp
+tempSummary = numSummary(CBS$temp, "temp")
+numVars = bind_rows(results, tempSummary)
+tempSummary
+
+#temp Distribution
+CBS %>% ggplot(aes(temp)) +
+  geom_histogram(aes(y = after_stat(density)), fill = "blue", color = "black", alpha = 0.6) +
+  geom_density(adjust = 3) +
+  labs(x = "Normalized Celcius",
+       y = "Density", 
+       title = "Distribution of `temp`")  +
+  theme(
+    plot.title = element_text(hjust = 0, face = "bold", size = 12),
+    axis.title.x = element_text(size = 8, color = "black"),
+    axis.title.y = element_text(size = 8, color = "black"),
+    axis.text.x = element_text(size = 8, color = "black"),
+    axis.text.y = element_text(size = 8, color = "black"))
+```
+
+
+##### `atemp`  
+
+```{r}
+#Retrieve summary statistics for atemp
+tempFCSummary = numSummary(CBS$atemp, "atemp")
+numVars = bind_rows(numVars, tempFCSummary)
+tempFCSummary
+
+#atemp Distribution
+CBS %>% ggplot(aes(atemp)) +
+  geom_histogram(aes(y = after_stat(density)), fill = "blue", color = "black", alpha = 0.6) +
+  geom_density(adjust = 3) +
+  labs(x = "Normalized - Real Feel Celcius",
+       y = "Density", 
+       title = "Distribution of `atemp`")  +
+  theme(
+    plot.title = element_text(hjust = 0, face = "bold", size = 12),
+    axis.title.x = element_text(size = 8, color = "black"),
+    axis.title.y = element_text(size = 8, color = "black"),
+    axis.text.x = element_text(size = 8, color = "black"),
+    axis.text.y = element_text(size = 8, color = "black"))
+``` 
+
+##### `hum`   
+
+```{r}
+#Retrieve summary statistics for humidity
+humSummary = numSummary(CBS$hum, "hum")
+numVars = bind_rows(numVars, humSummary)
+humSummary
+
+#Humidity Distribution
+CBS %>% ggplot(aes(hum)) +
+  geom_histogram(aes(y = after_stat(density)), fill = "blue", color = "black", alpha = 0.5) +
+  geom_density(adjust = 3) +
+  labs(x = "Normalized Humidity",
+       y = "Density", 
+       title = "Distribution of `hum`")  +
+  theme(
+    plot.title = element_text(hjust = 0, face = "bold", size = 12),
+    axis.title.x = element_text(size = 8, color = "black"),
+    axis.title.y = element_text(size = 8, color = "black"),
+    axis.text.x = element_text(size = 8, color = "black"),
+    axis.text.y = element_text(size = 8, color = "black"))
+```
+
+##### `windspeed`     
+
+```{r}
+#Retrieve summary statistics for windspeed
+windSummary = numSummary(CBS$windspeed, "windspeed")
+numVars = bind_rows(numVars, windSummary)
+windSummary
+
+#Windspeed Distribution
+CBS %>% ggplot(aes(windspeed)) +
+  geom_histogram(aes(y = after_stat(density)), fill = "blue", color = "black", alpha = 0.5) +
+  geom_density(adjust = 3) +
+  labs(x = "Normalized Windspeed",
+       y = "Density", 
+       title = "Distribution of `windspeed`")  +
+  theme(
+    plot.title = element_text(hjust = 0, face = "bold", size = 12),
+    axis.title.x = element_text(size = 8, color = "black"),
+    axis.title.y = element_text(size = 8, color = "black"),
+    axis.text.x = element_text(size = 8, color = "black"),
+    axis.text.y = element_text(size = 8, color = "black"))
+```
+
+```{r}
+#Summary Statistics of Continuous Variables 
+library(DT)
+datatable(numVars, class = 'cell-border stripe')
+```
+
+#### Boolean(True/False) Variables 
+
+##### `holiday`   
+
+Inspection of our `holiday` variable revealed dates which should have been marked as holidays and others which should not have been. We decided to re-label these observations based on official [federally recognized holidays](https://www.commerce.gov/hr/employees/leave/holidays).    
+
+In comparison to our dataset: **2011-01-01(New Years), 2011-12-25(Christmas), 2012-01-01(New Years), and 2012-11-11(Veterans Day)** were incorrectly mislabeled as *not* being holidays.  **2011-12-26, 2012-01-02, and 2012-11-12** were mislabeled as **being** holidays. The aforementioned dates were corrected as to maintain consistency with federally recognized holidays. **2011-04-15 and 2012-04-16**, while not being federally recognized holidays, are  dates of observance for Emancipation Day in the Washington D.C. Area. Due to the similar holiday-like observance of Emancipation Day in our area of interest, these two dates will be labeled as holidays.   
+
+The final distribution remains highly disproportionate yet expected, with only 525 of 17379observations being labeled as holidays. The remaining **16854** were not holidays. 
+
+
+```{r} 
+holidayDates <- CBS[CBS$holiday == TRUE,]
+holidayDates$date %>% unique()
+```
+
+```{r} 
+#2011 Holiday Dates
+USFed2011 <- c("2011-01-01", "2011-01-17", "2011-02-21","2011-04-15", "2011-05-30", "2011-07-04", "2011-09-05", "2011-10-10", "2011-11-11", "2011-11-24", "2011-12-25")
+incHolidayDates2011 <- CBS[CBS$date %in% USFed2011 & CBS$holiday == FALSE,]$date %>% unique()
+
+#2012 Holiday Dates
+USFed2012 <- c("2012-01-01", "2012-01-16", "2012-02-20", "2012-04-16", "2012-05-28", "2012-07-04", "2012-09-03", "2012-10-08", "2012-11-11", "2012-11-22", "2012-12-25")
+incHolidayDates2012 <- CBS[CBS$date %in% USFed2012 & CBS$holiday == FALSE,]$date %>% unique()
+
+#Merge incorrect dates
+incHolidays <- c(incHolidayDates2011, incHolidayDates2012)
+print("Should be labeled as holidays: ")
+print(incHolidays) 
+
+#Combined Holiday List 
+combinedUSFedHolidays <- c(USFed2011, USFed2012)
+print("Combined List of Federally Recognized U.S. Holidays for 2011/2012: ")
+print(combinedUSFedHolidays)
+
+#Correct Holiday Labels
+CBS<- CBS %>% mutate(holiday = ifelse(date %in% c(combinedUSFedHolidays), TRUE, FALSE))
+```
+
+```{r fig.width=5}
+print(paste("Percentages of holiday Observations:"))
+(prop.table(table(CBS$holiday)) * 100) %>% round(2)
+
+#Holiday Distribution
+CBS %>% 
+  ggplot(mapping = aes(x = holiday, fill = holiday)) +
+  geom_bar(color = "black") +
+  geom_text(stat = "count", aes(label = after_stat(count)), nudge_y = 1000, size = 3) +
+  scale_fill_viridis_d("Year", option = "magma") +
+  labs(title = "Distribution of `holiday`",
+       x = "",
+       y = "") +
+  theme(
+    plot.title = element_text(hjust = 0, face = "bold", size = 12),
+    axis.title.x = element_text(size = 8, color = "black"),
+    axis.title.y = element_text(size = 8, color = "black"),
+    axis.text.y = element_text(size = 8, color = "black")) +
+  guides(fill = "none") +
+  coord_flip()
+```
+
+##### `workingday`   
+
+The distribution reveals that the percentage of total observations being labeled as a `workingday` are nearly twice the amount as not being labeled. 
+
+```{r}
+#Ensure workingday definition is maintained (neither weekend nor holiday)
+out = nrow(CBS[CBS$workingday == TRUE & (CBS$day %in% c('Saturday', 'Sunday') | CBS$holiday == TRUE), ])
+if (out == 0) {
+  print("Workingday Logic Consistent")
+}
+```
+
+```{r fig.width=5}
+print(paste("Percentages of workingday Observations:"))
+(prop.table(table(CBS$workingday)) * 100) %>% round(2)
+
+#Holiday Distribution
+CBS %>% 
+  ggplot(mapping = aes(x = workingday, fill = workingday)) +
+  geom_bar(color = "black") +
+  geom_text(stat = "count", aes(label = after_stat(count)), nudge_y = 1000, size = 3) +
+  scale_fill_viridis_d("Year", option = "magma") +
+  labs(title = "Distribution of `workingday`",
+       x = "",
+       y = "") +
+  theme(
+    plot.title = element_text(hjust = 0, face = "bold", size = 12),
+    axis.title.x = element_text(size = 8, color = "black"),
+    axis.title.y = element_text(size = 8, color = "black"),
+    axis.text.y = element_text(size = 8, color = "black")) +
+  guides(fill = "none") +
+  coord_flip()
+```
+
+## Correlation 
+
+We decided to investigate some of the stronger, more notable relationships made apparent by the correlation matrix just prior.
+
+```{r}
+#Show relationships between predictors and dvs
+test_CBS <- CBS
+test_CBS$hum_sq <- test_CBS$hum * test_CBS$hum
+
+cor_matrix <- cor(test_CBS[sapply(test_CBS, is.numeric)])
+print(cor_matrix)
+```
+Positive correlations between our temperature related variables and target. 
+hum negatively related to our target variables
+
+```{r  fig.height=6, fig.width=6}
+# Visualize the correlation matrix using the corrplot package
+corrplot(cor_matrix, method = "circle",
+         type = "upper", order = "AOE", 
+         tl.col = "black", tl.cex = 1,
+         addCoef.col = "darkred",
+         number.cex = 1, tl.srt = 50)
+```
+
+
+```{r  fig.height=6, fig.width=6}
+library(PerformanceAnalytics)
+corr_df <- CBS %>% select_if(is.numeric)
+chart.Correlation(corr_df)
+```
+
+## Notable Multivariate Analysis  
+
+#### Temperature Related Variables
+
+Examining the multi-variable relationship between our temperature related variables, `temp`/`atemp`, and the target variables revealed the presence of multi-variate outliers.    
+
+These twenty-four observations had the exact same `atemp` value of **0.2424**, but `temp` values which were relatively high and variable in relation, ranging from **0.62 to 0.86**. Delving into these observations values, we discovered that they were all recorded sequentially, on the exact same day(*2012-08-17*) and under the same weather conditions(*Type 1*). The changing levels of humidity and wind speed lead us to further believe that the real feel temperature should have likewise varied when compared to other observations of similar values in the dataset.   
+
+When considering the evidence of these twenty-four `temp` and `atemp` multivariate as being observations, we will opt to remove these observations. This removal helps to ensure data integrity as we move towards the modeling process. 
+
+```{r atemp}
+CBS %>% ggplot(aes(atemp, temp)) +
+  geom_point(color = ifelse(CBS$atemp < .3 & CBS$temp > .5, "red", "black"),
+             alpha = 0.4,
+             size = 1) +
+  labs(x = "Real Feel - Celcius",
+       y = "Actual Temp - Celcius",
+       title = "Actual vs Real Feel Celcius",
+       subtitle = "Bivariate Outliers Denoted in Red ") +
+  theme(
+    plot.title = element_text(hjust = 0, face = "bold", size = 12),
+    axis.title.x = element_text(size = 8, color = "black"),
+    axis.title.y = element_text(size = 8, color = "black"),
+    axis.text.y = element_text(size = 8, color = "black")) 
+```
+
+```{r}
+#Examine multi-variate outliers to find potential reason of high `temp` values
+mvOutliers <- CBS[CBS$atemp < .3 & CBS$temp > .5,]
+mvOutliers
+
+#Remove Outlier Observations
+subset <- (!(rownames(CBS) %in% rownames(mvOutliers)))
+CBS <- CBS[subset, ]
+
+rownames(CBS) <- NULL
+
+```
+
+```{r fig.width=4.5}
+CBS %>% ggplot(aes(atemp, temp)) +
+  geom_raster(aes(fill = count_rentals)) +
+  labs(x = "Real Feel - Celcius",
+       y = "Actual Temp - Celcius",
+       title = "Rentals Relation to Temperature") +
+  scale_fill_viridis_c(option = "magma") +
+  theme(
+    plot.title = element_text(hjust = 0, face = "bold", size = 12),
+    axis.title.x = element_text(size = 8, color = "black"),
+    axis.title.y = element_text(size = 8, color = "black"),
+    axis.text.y = element_text(size = 8, color = "black")) +
+  geom_rect(aes(xmin = .21, ymin = .55, xmax = .27, ymax = .94), color = "red", fill = NA) +
+  geom_text(x = .20, y = .5, label = "Outliers", color = "red")
+```
+
+
+
+#### Hourly Usage and Day  
+
+Due to the widespread availability of bicycles as a mode of transportation at all hours of the day, our intuition led us to investigate possible patterns of usage based solely on time. What we uncovered, showed that during working days, for target variables `registered` and `count_rentals`, there is strong indication that bicycles are being utilized as a primary mode of transportation to and from work. No strong pattern(constant trend) of usage was seen for `casual` rentals.
+
+For the `registered` and `count_rentals`, there is a notable pattern in bicycle rentals during commute hours to/from work. It may be the case that Capital Bike Share bicycles are used as a primary mode of transportation for the majority of riders during working hours.  Before 9:00AM, we note an upward trend of rentals followed by a stark decrease just after. We are interpreting this as individuals arriving at work. This is followed by high usage at 5:00PM when people typically leave work, where the bikes may be rapidly available. This is then followed with slowly decreasing usage. Based on these insights, we will be considering including an interaction term between `hour` and `workingday`(or `day`)in our models predicting `registered` and `count_rentals` to capture this variability in rental numbers. Doing so will also allow us to capture the high usage trends during weekend hours as well. 
+
+```{r fig.width=5, fig.height = 5} 
+#Examining the relationship between day of the week and hourly trends
+hours <- CBS$hour %>% unique() %>% as.vector() %>% rev()
+
+#Usage looks identical for casual & registered --> therefore only showing count_rentals
+CBS[(CBS$day %in% c("Sunday", "Saturday")),] %>% 
+  ggplot(mapping = aes(x = factor(hour, levels = hours), count_rentals, fill = year)) +
+  geom_boxplot(alpha = 0.7, width = .8) +
+  labs(x = "", y = "Total Rentals",
+       title = "Weekend Hourly Trends of Rentals",
+       subtitle = "Smooth Curve of Rental with Peak Usage Around Midday")+
+  scale_fill_viridis_d(option = "magma") +
+  coord_flip() +
+  theme(axis.text.x = element_text(angle = 25,
+                                   size = 7),
+        axis.ticks = element_line(color = "black")) +
+  facet_wrap(~day, ncol = 5, nrow  = 1)  
+```
+
+```{r fig.width=7.5, fig.height = 5} 
+CBS[!(CBS$day %in% c("Sunday", "Saturday")),] %>% 
+  ggplot(mapping = aes(x = factor(hour, levels = hours), count_rentals, fill = year)) +
+  geom_boxplot(alpha = 0.7, width = .8) +
+  labs(x = "", y = "Total Rentals",
+       title = "Weekday Hourly Trends of Rentals",
+       subtitle = "Peak Usage Before & After Work 9-5 Schedule")+
+  scale_fill_viridis_d(option = "magma") +
+  coord_flip() +
+  theme(axis.text.x = element_text(angle = 25,
+                                   size = 7),
+        axis.ticks = element_line(color = "black")) +
+  facet_wrap(~day, ncol = 5, nrow  = 1)
+```
+
+## Feature Engineering    
+
+#### Target Variables   
+
+#### Predictor Variables  
+
+##### `date`   
+
+There being **731** distinct dates could have severe impacts, mainly overfitting, when regressing our target variables. The only unique piece of information provided by `date` is the day of the month. All other information provided by `date` is captured by our `year` and `month` variable. To prevent these excessive categories from being created, we will extract the day of the month provided by the `date` variable, but eliminate the `date` variable from our analysis. 
+
+```{r}
+CBS$day_of_month <- factor(day(CBS$date))
+CBS <- CBS %>% dplyr::select(-date)
+``` 
+
+
+```{r}
+#Create Dummy Coding here for these variables 
+library(fastDummies)
+
+#season - year - month - hour - day  - weather - day_of_month
+CBS <- dummy_cols(CBS, select_columns = 
+                    c("season", "year", "month", "hour", "day", "weather", "day_of_month"),
+                  remove_first_dummy = T) %>%
+  dplyr::select(-c(season, year, month, hour, day, weather, day_of_month))
+
+#Coerce Logical Types to Numeric
+CBS <- CBS %>% mutate_if(is.logical, as.numeric)
+
+#Inspect Dataset
+CBS %>% glimpse
+```
+
+
+# Model Building 
+
+## Data Partition   
+
+```{r}
+library(MASS)
+library(leaps) #Best Subset Selection
+library(caret) #data split
+#For Reproducibility
+set.seed(123)
+#80/20 Test Split 
+index <- createDataPartition(CBS$count_rentals, p = .8, list = FALSE)
+train <- CBS[index, ]
+test <- CBS[-index, ]
+rownames(train) <- 1:nrow(train)
+rownames(test) <- 1:nrow(test)
+```
+
+## Initial Full Model(s)   
+
+```{r, fig.width=6, fig.height=6}
+full_model <- lm(count_rentals ~ ., data = train)
+#summary(full_model)
+#Verification of Model Assumptions - Casual
+
+#Model with non-correlated variables
+rownames(train) <- 1:nrow(train)
+rownames(test) <- 1:nrow(test)
+full_model_non_cor <- lm(count_rentals ~ . - temp, data = train)
+#summary(full_model_non_corr)
+```
+
+### Regression Assumptions  
+
+```{r, fig.width=6, fig.height=6}
+par(mfrow = c(2,2)) 
+plot(full_model_non_cor)
+```
+
+#### Normality
+
+```{r}
+# Kolmogorov-Smirnov Test - Normality Assumption 
+ks <- ks.test(full_model_non_cor$residuals, 'pnorm')
+if (ks$p.value <= 0.05) {
+  print("H0 rejected: the residuals are NOT distributed normally")
+} else {
+  print("H0 failed to reject: the residuals ARE distributed normally")
+}
+ggplot(mapping = aes(x= full_model_non_cor$residuals)) + 
+  geom_histogram(fill = "white", color = "black") +
+  labs(x = "Residuals", y = "Frequency",
+       title = "Histogram of Residuals")
+```
+
+#### Homoscedasticity 
+
+```{r fig.height=6, fig.width=6}
+#Breush-Pagan Test - Homoscedasticity Assumption
+library(lmtest)
+bp <- bptest(full_model_non_cor)
+  if (bp$p.value <= 0.05) {
+    print("H0 rejected: Error variance spreads INCONSTANTLY/generating patterns (Heteroscedasticity)")
+  } else {
+    print("H0 failed to reject: Error variance spreads CONSTANTLY (Homoscedasticity)")
+  }
+plot(full_model_non_cor, which = 1)
+```
+
+#### Multicollinearity  
+
+```{r}
+library(car)
+library(kableExtra)
+df_vif = vif(full_model_non_cor) %>% data.frame()
+colnames(df_vif) = "VIF"
+df_vif %>% arrange(desc(VIF))
+```
+
+### Model Improvement
+
+#### Model Outliers/Influential Observations  
+
+```{r fig.height=12, fig.width=12}
+#Rownames were reset during train/test split
+out_lev <- c(7302, 7093)
+train <- train[-c(out_lev), ]
+
+#Re-train without outlier values
+full_model_rev <- lm(count_rentals ~ . - temp, data = train)
+
+#summary(full_model_rev)
+par(mfrow = c(2,2))
+plot(full_model_rev)
+```
+
+#### Target Variable Transformation 
+
+[REWRITE]
+
+during this analysis is to fit multiple linear regression models that carry certain assumptions which must be satisfied. These mainly include our response variable being linearly related to the predictors(linearity) and equality of variances in the residuals(homoscedasticity). With their current skewed distributions, these two assumptions would undoubtedly be violated post-model building.
+
+In order to satisfy the assumptions of linear regression, a transformation on each of the target variables becomes necessary. We considered multiple transformations to approach normality, including, the Box-cox, logarithmic, square-root, cube-root, and fourth-root transformations. For each of our target variables, the transformation which approximated normality (closest skewness value to 0) the closest was the **cube-root** transformation. Neither the logarithmic and Box-cox transformations could not be applied to `casual` and `registered` due to the presence of zero(0) values which are incompatible with the transformations. 
+
+```{r}
+library(MASS)
+#Box-cox Transformation on count_rentals
+b <- boxcox(lm(CBS$count_rentals ~ 1), plotit = F)
+lambda <- b$x[which.max(b$y)]
+box_total <- (CBS$count_rentals ^ lambda - 1) / lambda
+#Log Transformation
+log_total <- log(CBS$count_rentals)
+#Sqrt Transformation
+sqrt_total <- sqrt(CBS$count_rentals)
+#Cube Root Transformation
+cube_root_total <- (CBS$count_rentals)^(1/3)
+#Fourth Root Transformation
+fourth_root_total <- (CBS$count_rentals)^(1/4)
+
+ggTrans <- function(var, myTitle) {
+  #Cube Root Transformation - count_rentals
+  skewVal <- skewness(var) %>% round(3)
+  CBS %>% ggplot(aes(var)) +
+    geom_histogram(aes(y = after_stat(density)),fill = "darkblue", color = "black", alpha = 0.6) +
+    geom_density(adjust = 2) +
+    labs(x = "Cube Root Total", y = "Density",
+         title = myTitle,
+         subtitle = paste("Skewness Value: ", skewVal)) +
+    theme(
+      plot.title = element_text(hjust = 0, face = "bold", size = 12),
+      axis.title.x = element_text(size = 8, color = "black"),
+      axis.title.y = element_text(size = 8, color = "black"),
+      axis.text.x = element_text(size = 8, color = "black"),
+      axis.text.y = element_text(size = 8, color = "black"))
+}
+```
+
+```{r}
+#Inspect Distributions
+ggTrans(box_total, "Box-Cox Transformation")
+ggTrans(log_total, "Log Transformation")
+ggTrans(sqrt_total, "Square Root Transformation")
+ggTrans(cube_root_total, "Cube Root Transformation")
+ggTrans(fourth_root_total, "Fourth Root Transformation")
+```
+
+```{r}
+print("---Best Transformation Approaches---")
+print(paste("cube_root_total skewness value: ", skewness(cube_root_total)))
+```
+
+```{r}
+#Add cube-root transformations to the dataset
+train$cube_root_total <- (train$count_rentals)^(1/3)
+test$cube_root_total <- (test$count_rentals)^(1/3)
+```
+
+#### Multicollinearity (VIF) 
+
+```{r, fig.width=7, fig.height=7}
+#hour causes this diagonal
+model_assumption_ver <- lm(cube_root_total ~ . - count_rentals - temp - workingday - season_Summer,
+                          data = train)
+
+df_vif = vif(model_assumption_ver) %>% data.frame()
+colnames(df_vif) = "VIF"
+df_vif %>% arrange(desc(VIF))
+```
+
+### Reduced Models (Feature Selection) 
+
+```{r fig.height=5, fig.width=8.5}
+library(leaps)
+
+OLS.regback <- leaps::regsubsets(cube_root_total ~ . - count_rentals - temp - workingday - season_Summer, train, method = "seqrep", nvmax = 70)
+
+OLSregbacksum <- summary(OLS.regback)
+
+adjr2mat <- data.frame(t(OLSregbacksum$adjr2))
+bicmat <- data.frame(t(OLSregbacksum$bic))
+
+combined_df <- data.frame(
+  Adj_R2 = unlist(adjr2mat),
+  BIC = unlist(bicmat)
+)
+
+combined_df
+
+par(mfrow = c(1,2))
+plot(OLSregbacksum$adjr2, xlab = "Number of Variables",
+    ylab = "Adjusted RSq", type = "l", lwd = 1.5, main = "Number of Variables Vs. Adjusted R2",
+    cex.main = 1.15, cex.lab = 1, cex.axis = 1.05, font.axis = 2,
+    font.lab = 2, panel.first = grid(nx = NULL, ny = NULL, col = "gray",
+        lty = 2))
+points(39, OLSregbacksum$adjr2[39], col = "#336699", cex = 2, pch = 20)
+
+plot(OLSregbacksum$bic, xlab = "Number of Variables", ylab = "BIC",
+    type = "l", lwd = 1.5, cex.main = 1.15, cex.lab = 1, cex.axis = 1.05,
+    font.axis = 2, font.lab = 2, main = "Number of Variables Vs. BIC",
+    panel.first = grid(nx = NULL, ny = NULL, col = "gray", lty = 2))
+points(39, OLSregbacksum$bic[39], col = "#336699", cex = 2, pch = 20)
+```
+
+```{r}
+# Find the model with the lowest BIC value
+best_model_index <- which.min(OLSregbacksum$bic)
+
+# Get the best model
+best_model <- coef(OLS.regback, id = best_model_index)
+
+# Extract the coefficients from the best model and remove the intercept term from the coefficients
+best_coefficients <- round(unname(best_model)[-1], 4)
+
+# Get the variable names from your redDF dataframe
+variable_names <- names(best_model)[-1]
+
+# Extract the intercept coefficient separately
+intercept_coefficient <- round(unname(best_model)[1], 4)
+
+# Define the named_coefficients variable
+named_coefficients <- setNames(best_coefficients, variable_names)
+
+# Create the LaTeX equation
+equation <- paste("y =", intercept_coefficient, "+", paste(named_coefficients, variable_names, sep = " * ", collapse = " + "), "")
+```
+
+
+```{r}
+#Extract the best stepwise variables from train
+final_mod_vars <- named_coefficients %>% names()
+
+vars <- train %>% names()
+
+#Fix "`" and then return list of appropriate vars
+variables_for_selection = c()
+for (i in 1:length(final_mod_vars)) {
+  var_to_list = str_replace_all(final_mod_vars[i], "`", "" )
+  variables_for_selection = c(variables_for_selection, var_to_list)
+}
+```
+
+```{r}
+#Final train df of best variables from stepwise 
+train_final <- train %>% select_if(vars %in% variables_for_selection)
+train_final <- train_final %>% bind_cols(train$cube_root_total)
+train_final <- train_final %>% rename(cube_root_total = "...40")
+```
+
+
+```{r}
+stepwise_model <- lm(cube_root_total ~ . ,data = train_final)
+```
+
+
+
+```{r}
+#Make Predictions
+pred_values_total_rentals <- predict(stepwise_model, newdata = test) %>% data.frame()
+pred_values_total_rentals$fit = (pred_values_total_rentals$.)^3
+pred_values_total_rentals$obs = (test$cube_root_total)^3
+
+library(car)
+#Return Metrics
+metrics <- function(y_pred, y_true){
+ rmse <- RMSE(y_pred, y_true)
+ mse <- mean((y_pred - y_true)^2)
+ mae <- MAE(y_pred, y_true)
+ corPredAct <- cor(y_pred, y_true)
+ df = data.frame(Root_Mean_Squared_Error = rmse,
+                 Mean_Squared_Error = mse,
+                 Mean_Absolute_Error = mae,
+                 Corr_Between_Pred_Obs = corPredAct,
+                 R_squared_Pred_Obs = corPredAct*corPredAct)
+ df <- df %>% t() %>% data.frame()
+ df <- df %>% rename(Test_Error_Metrics = ".")
+ return (df)
+}
+
+#print(paste0("MSE: ", round(mse, 6)))
+#print(paste0("RMSE: ", round(rmse, 6)))
+#print(paste0("MAE: ", round(mae, 6)))
+#print(paste0("Correlation: ", round(corPredAct, 6)))
+#print(paste0("R^2 between y_pred & y_true: ", round(corPredAct^2, 6)))
+model_metrics_df = metrics(y_pred = pred_values_total_rentals$fit, y_true = pred_values_total_rentals$obs)
+
+model_metrics_df
+```
+
+```{r fig.height=5, fig.width=5}
+#Total Rentals Predicts vs. Observed Values
+ggplot(pred_values_total_rentals, aes(x=obs, y=fit)) +
+  geom_point(aes(color = abs(obs - fit)), size = 3, alpha = 0.6) + 
+  geom_abline(intercept=0, slope=1, linetype="dashed", color="red") +
+  scale_color_viridis_c(option = "A", direction = -1) + 
+  labs(
+    title = "Actual vs Predicted Number of Total Rentals",
+    subtitle =  paste("Expected Average Error from Prediction: ", round(rmse_total_rentals,2), "Total Rentals"),
+    x = "Actual Number of Total Rentals",
+    y = "Predicted Number of Total Rentals",
+    color = "Residual Magnitude")
+```
+
+
+# Conclusions and Recommendations
+
+\pagebreak
+
+# Appendix 
+
+
+```{r,echo=FALSE, include = TRUE, out.width='.49\\linewidth',fig.show='hold',fig.align='center', fig.cap="Cube-root transformation applied to target, `count_rentals` to approximate normality"}
+#fig.1
+#fig.2
+```
+
+
+
+
+
