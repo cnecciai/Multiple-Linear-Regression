@@ -749,7 +749,7 @@ While inclusion of the variables helped explain some error(RSS), the trade-off o
 It is for this reason, our team has decided to remove the `date` variable from the modeling process entirely. 
 
 ```{r}
-CBS$int_hour_day <- interaction(CBS$hour, CBS$day)
+CBS$int_hour_workday <- interaction(CBS$hour, CBS$workingday)
 ```
 
 
@@ -766,15 +766,15 @@ CBS <- CBS %>% dplyr::select(-date)
 #Create Dummy Coding here for these variables 
 library(fastDummies)
 
-#In order for the interaction to work, I had to remove hour and day from the model... 
-#Getting an hour saying, "there are aliased variables"
+#In order for the interaction to work, I had to remove hour and workingday from the model... 
+#Getting an hour saying, "there are aliased coefficients"
 
 
 #season - year - month - hour - day  - weather - day_of_month
 CBS <- dummy_cols(CBS, select_columns = 
-                    c("season", "year", "month", "weather", "int_hour_day"),
+                    c("season", "year", "month", "day", "weather", "int_hour_workday"),
                   remove_first_dummy = T) %>%
-  dplyr::select(-c(season, year, month, hour, day, weather, int_hour_day))
+  dplyr::select(-c(season, year, month, day, weather, hour, workingday, int_hour_workday))
 
 #Coerce Logical Types to Numeric
 CBS <- CBS %>% mutate_if(is.logical, as.numeric)
@@ -940,9 +940,15 @@ test$cube_root_total <- (test$count_rentals)^(1/3)
 
 #### Multicollinearity (VIF) 
 
+day_Wednesday	16.188495			
+day_Tueday	16.135933			
+day_Thursday	15.904801			
+day_Friday	15.699903			
+day_Monday	14.808591	
+
 ```{r, fig.width=7, fig.height=7}
 #hour causes this diagonal
-model_assumption_ver <- lm(cube_root_total ~ . - count_rentals - temp - workingday - season_Summer,
+model_assumption_ver <- lm(cube_root_total ~ . - count_rentals - temp - day_Wednesday - season_Summer,
                           data = train)
 
 df_vif = vif(model_assumption_ver) %>% data.frame()
@@ -955,7 +961,7 @@ df_vif %>% arrange(desc(VIF))
 ```{r fig.height=5, fig.width=8.5}
 library(leaps)
 
-OLS.regback <- leaps::regsubsets(cube_root_total ~ . - count_rentals - temp - workingday , train, method = "seqrep", nvmax = 175)
+OLS.regback <- leaps::regsubsets(cube_root_total ~ . - count_rentals - temp - day_Wednesday - season_Summer, train, method = "seqrep", nvmax = 175)
 
 OLSregbacksum <- summary(OLS.regback)
 
@@ -967,7 +973,7 @@ combined_df <- data.frame(
   BIC = unlist(bicmat)
 )
 
-combined_df[169:173,]
+combined_df[63:67,]
 
 par(mfrow = c(1,2))
 plot(OLSregbacksum$adjr2, xlab = "Number of Variables",
@@ -975,13 +981,13 @@ plot(OLSregbacksum$adjr2, xlab = "Number of Variables",
     cex.main = 1.15, cex.lab = 1, cex.axis = 1.05, font.axis = 2,
     font.lab = 2, panel.first = grid(nx = NULL, ny = NULL, col = "gray",
         lty = 2))
-points(171, OLSregbacksum$adjr2[171], col = "#336699", cex = 2, pch = 20)
+points(65, OLSregbacksum$adjr2[65], col = "#336699", cex = 2, pch = 20)
 
 plot(OLSregbacksum$bic, xlab = "Number of Variables", ylab = "BIC",
     type = "l", lwd = 1.5, cex.main = 1.15, cex.lab = 1, cex.axis = 1.05,
     font.axis = 2, font.lab = 2, main = "Number of Variables Vs. BIC",
     panel.first = grid(nx = NULL, ny = NULL, col = "gray", lty = 2))
-points(171, OLSregbacksum$bic[171], col = "#336699", cex = 2, pch = 20)
+points(65, OLSregbacksum$bic[65], col = "#336699", cex = 2, pch = 20)
 ```
 
 ```{r}
