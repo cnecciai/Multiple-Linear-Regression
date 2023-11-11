@@ -38,22 +38,23 @@ theme_set(theme_minimal())
 
 # Executive Summary   
 
-|       Capital Bike Share provides a network of multi-purpose bicycles to the denizens of the Washington D.C. Metropolitan region. We have been approached by Capital Bike Share to delve into their hour-by-hour observations across the 2011 and 2012 time frame. Preliminary insights into the dataset provided to us from Capital Bike Share revealed that demand for usage of these bicycles can be affected by a variety of noteworthy, influential factors. 
+|       Capital Bike Share provides a network of multi-purpose bicycles to the denizens of the Washington D.C. Metropolitan region. We were approached by Capital Bike Share to delve into their hour-by-hour observations across the 2011 and 2012 time frame. Preliminary insights into the dataset provided to us revealed that demand usage for these bicycles can be affected by a variety of noteworthy, influential factors. These can be broken down into two major categories of influence: time and weather.   
+
+|        We examined multi-variable trends and deliberated on patterns which revealed key insights. Based on our visualizations, we concluded rental demand as being dominated by registered riders using bicycles as a primary mode of transportation to and from work. Furthermore, our resulting predictive model confirmed our preliminary analysis, as it was ultimately determined that time-based variables were the most significant factors in accurately predicting bicycle rentals. 
 
 |       
 
 # Problem Statement
 
-|       We have been tasked with identifying the most influential variables relative to their predictive power affecting the amount of total hour-by-hour bicycle rentals. Beginning with an exploratory data analysis and inspection of our dataset, we aim to systematically determine these variables with respect to their predictive power through a well-documented, thorough analysis.   
+|       We have been tasked with identifying the most influential variables relative to their predictive power affecting the total hour-by-hour bicycle rentals. Beginning with an exploratory data analysis and inspection of our dataset, we aim to systematically determine these variables with respect to their predictive power through a well-documented, granular analysis.   
 
-|       Our modeling process will culminate in a model which will not only accurately predict rental demand, but simultaneously provide an assumption-verified, statistical performance evaluation confirming our models' reliability. Below we provide the methodology of our approach, beginning with an inspection and analysis of our data, followed by our modeling selection strategy and diagnostic testing to ensure model generalizability. Finally, we conclude with our recommendations and takeaways.   
+|       Our modeling process will culminate in a model which will not only accurately predict rental demand, but simultaneously provide an assumption-backed, statistical performance evaluation confirming our models' reliability. Below we provide the methodology of our approach, beginning with an inspection and analysis of our data, followed by our modeling selection strategy and diagnostic testing to ensure model generalizability. Finally, we conclude with our recommendations and takeaways.   
 
 # Methodology
 
 ## Data Preprocessing     
 
 We began our approach by taking an overview of the integrity of our dataset. We discovered no missing values nor duplicated observations. We did, however, note variables which would be irrelevant to the overall analysis and took steps to filter out these irrelevant features. 
-
 
 Notes: Variables were renamed for descriptive clarity. No missing nor duplicate data detected. We reevaluated each variables underlying data type corresponding values, and when necessary, replaced each with more appropriate types and corresponding values. [Explain why you did this?] Make note of the changes that happened as a result and the final dimensionality of the dataset after pre-processing.
 
@@ -65,7 +66,7 @@ CBS %>% glimpse()
 
 ```{r}
 #Dropping Variables Irrelevant to Analysis
-CBS <- CBS %>% dplyr::select(-c("instant", "casual", "registered"))
+
 
 
 #Rename Variables for descriptive clarity
@@ -610,10 +611,7 @@ We decided to investigate some of the stronger, more notable relationships made 
 
 ```{r}
 #Show relationships between predictors and dvs
-test_CBS <- CBS
-test_CBS$hum_sq <- test_CBS$hum * test_CBS$hum
-
-cor_matrix <- cor(test_CBS[sapply(test_CBS, is.numeric)])
+cor_matrix <- cor(CBS[sapply(CBS, is.numeric)])
 print(cor_matrix)
 ```
 Positive correlations between our temperature related variables and target. 
@@ -692,7 +690,11 @@ rownames(CBS) <- NULL
 
 Due to the widespread availability of bicycles as a mode of transportation at all hours of the day, our intuition led us to investigate possible patterns of usage based solely on time. What we uncovered, showed that during working days, there is strong indication that bicycles are being utilized as a primary mode of transportation to and from work. 
 
-There is a notable pattern in bicycle rentals during the commute hours to/from work. It may be the case that Capital Bike Share bicycles are used as a primary mode of transportation for the majority of riders during working hours.  Before 9:00AM, we note an upward trend of rentals followed by a stark decrease just after. We are interpreting this as individuals arriving at work. This is followed by high usage at 5:00PM when people typically leave work, where the bikes may be rapidly available. This is then followed with slowly decreasing usage. Based on these insights, we will be considering including an interaction term between `hour` and `day` in our models to capture this variability in rental numbers. Doing so will also allow us to capture the high usage trends during weekend hours as well. 
+There is a notable pattern in bicycle rentals during the commute hours to/from work. It may be the case that Capital Bike Share bicycles are used as a primary mode of transportation for the majority of riders during working hours.  Before 9:00AM, we note an upward trend of rentals followed by a stark decrease just after. We are interpreting this as individuals arriving at work. This is followed by high usage at 5:00PM when people typically leave work, where the bikes may be rapidly available. This is then followed with slowly decreasing usage. 
+
+
+[POSSIBLY REMOVE THIS - DECIDE LATER]
+Based on these insights, we will be considering including an interaction term between `hour` and `day` in our models to capture this variability in rental numbers. Doing so will also allow us to capture the high usage trends during weekend hours as well. 
 
 ```{r fig.width=5, fig.height = 5} 
 #Examining the relationship between day of the week and hourly trends
@@ -726,6 +728,19 @@ CBS[!(CBS$day %in% c("Sunday", "Saturday")),] %>%
                                    size = 7),
         axis.ticks = element_line(color = "black")) +
   facet_wrap(~day, ncol = 5, nrow  = 1)
+
+CBS[!(CBS$day %in% c("Sunday", "Saturday")),] %>% 
+  ggplot(mapping = aes(x = factor(hour, levels = hours), registered, fill = year)) +
+  geom_boxplot(alpha = 0.7, width = .8) +
+  labs(x = "", y = "Total Rentals",
+       title = "Weekday Hourly Trend of Registered Rentals",
+       subtitle = "Peak Usage Before & After Work 9-5 Schedule")+
+  scale_fill_viridis_d(option = "magma") +
+  coord_flip() +
+  theme(axis.text.x = element_text(angle = 25,
+                                   size = 7),
+        axis.ticks = element_line(color = "black")) +
+  facet_wrap(~day, ncol = 5, nrow  = 1)
 ```
 
 ## Feature Engineering    
@@ -734,76 +749,11 @@ CBS[!(CBS$day %in% c("Sunday", "Saturday")),] %>%
 
 #### Predictor Variables  
 
-##### `hour`  We noted previously on the interaction between `hour` and `day` and its affects on the number of rentals. We wish to capture this discernible pattern in order to yield better model performance overall. To naively create an interaction between these two variables as they currently exist would create **168** new variables. This would undoubtedly create much overhead for our models but also runs the risk of overfitting.  
-
-We decided on an optimal solution of re-categorizing our `hour` variable down to just five distinct categories. The resulting variables consisted of different time recognizable, common-sense periods of time during the day. Doing so allowed us to not only reduce our overall number of categories down to **35**, but still capture much of the underlying interaction between `hour` and `day`.
-
-```{r fig.width=9, fig.height = 5}
-
-#Create appropriate subsets of hourly categories
-morning <- c("12:00AM", "1:00AM", "2:00AM", "3:00AM", "4:00AM", "5:00AM","6:00AM","7:00AM", "8:00AM","9:00AM")
-midday <- c("10:00AM","11:00AM","12:00PM","1:00PM","2:00PM", "3:00PM","4:00PM","5:00PM", "6:00PM")
-evening_night <- c("7:00PM", "8:00PM", "9:00PM", "10:00PM","11:00PM")
-time_of_day <- rep(NA, length(CBS))
-
-#Determine Proper Category
-for (i in 1:nrow(CBS)) {
-  curr_hour = CBS$hour[i]
-  if (curr_hour %in% morning) {
-    cat = "morning"
-  } else if (curr_hour %in% midday) {
-    cat = "midday"
-  } else { #evening_night
-    cat = "evening_night"
-  }
-  time_of_day[i] = cat
-}
-
-#Reassign Categories to Hour Variable
-CBS$hour = factor(time_of_day)
-```
-
-
-```{r fig.width=8, fig.height = 4}
-ordering = c("early_morning", "morning", "midday", "late_afternoon", "evening_night")
-ordering <- ordering %>% rev()
-  
-CBS %>% 
-ggplot(mapping = aes(x = factor(hour, levels = ordering), count_rentals)) +
-  geom_boxplot(aes(fill = workingday), alpha = 0.7, width = .8) +
-  labs(x = "", y = "Total Rentals",
-       title = "Categorized Hours of Total Rentals",
-       subtitle = "Disparity of Rental Trends Still Present in Re-Categorized Hour Variable")+
-  scale_fill_viridis_d(option = "magma") +
-  theme(axis.text.x = element_text(angle = 25,
-                                   size = 7),
-        axis.ticks = element_line(color = "black")) +
-  coord_flip()+
-  facet_wrap(~day, ncol = 7, nrow  = 1)
-```
-
-
 ##### `date`  
 
-We speculated that the creation of **731** distinct variables representing `date` could have severe impacts on model performance when regressing our target variable. The only unique piece of information provided by `date` is the day of the month. All other information is already found in our `year` and `month` variable. 
+Our team reasoned that the creation of **731** distinct variables representing `date` could have severe impacts on model performance when regressing our target variable. The only unique piece of information provided by `date` is the day of the month. All other information is already found in our `year` and `month`, and `day` variable.  
 
-Our team experimented with the inclusion of a variable representing this day of the month(`day_of_month`) in an attempt to achieve better overall model performance. After extensive testing, we found that *exclusion* of this variable and of `date` yielded better performance. 
-
-While inclusion of the variables helped explain some error(RSS), the trade-off of having to create additional variables to accommodate the model fitting process ultimately proved detrimental to overall performance. 
-
-It is for this reason, our team has decided to remove the `date` variable from the modeling process entirely. 
-
-```{r}
-#CBS$hr_wk <- interaction(CBS$hour, CBS$day)
-```
-
-
-Or I could just do an interaction between some of the variables...
-
-```{r}
-#Removal of Date - Negatively Impacted Model Performance
-#CBS <- CBS %>% dplyr::select(-date)
-``` 
+Because of this, we have decided to drop the `date` variable from futher analysis. 
 
 ##### Dummy Variable Creation 
 
@@ -811,28 +761,23 @@ Or I could just do an interaction between some of the variables...
 #Create Dummy Coding here for these variables 
 library(fastDummies)
 
-#In order for the interaction to work, I had to remove hour and workingday from the model... 
-#Getting an hour saying, "there are aliased coefficients"
-
-
-#season - year - month - hour - day  - weather - day_of_month
+#Create Dummy Variables
 CBS <- dummy_cols(CBS, select_columns = 
-                    c("season", "year", "month", "day", "hour", "weather", "hr_wk"),
-                  remove_first_dummy = F) %>%
-  dplyr::select(-c(season, year, month, day, hour, weather, hr_wk))
+                    c("season", "year", "month", "day", "hour", "weather"),
+                  remove_first_dummy = T) %>%
+  dplyr::select(-c(season, year, month, day, hour, weather))
 
 #Coerce Logical Types to Numeric
 CBS <- CBS %>% mutate_if(is.logical, as.numeric)
-
+CBS <- CBS %>% dplyr::select(-c("instant", "casual", "registered"))
+CBS <- CBS %>% dplyr::select(-c(date, temp))
 ```
-
 
 # Model Building 
 
 ## Data Partition   
 
 ```{r}
-library(MASS)
 library(leaps) #Best Subset Selection
 library(caret) #data split
 #For Reproducibility
@@ -849,34 +794,27 @@ rownames(test) <- 1:nrow(test)
 
 ```{r, fig.width=6, fig.height=6}
 full_model <- lm(count_rentals ~ ., data = train)
-#summary(full_model)
-#Verification of Model Assumptions - Casual
-
-#Model with non-correlated variables
-rownames(train) <- 1:nrow(train)
-rownames(test) <- 1:nrow(test)
-full_model_non_cor <- lm(count_rentals ~ . - temp, data = train)
-summary(full_model_non_cor)
+summary(full_model)
 ```
 
 ### Regression Assumptions  
 
 ```{r, fig.width=6, fig.height=6}
 par(mfrow = c(2,2)) 
-plot(full_model_non_cor)
+plot(full_model)
 ```
 
 #### Normality
 
 ```{r}
 # Kolmogorov-Smirnov Test - Normality Assumption 
-ks <- ks.test(full_model_non_cor$residuals, 'pnorm')
+ks <- ks.test(full_model$residuals, 'pnorm')
 if (ks$p.value <= 0.05) {
   print("H0 rejected: the residuals are NOT distributed normally")
 } else {
   print("H0 failed to reject: the residuals ARE distributed normally")
 }
-ggplot(mapping = aes(x= full_model_non_cor$residuals)) + 
+ggplot(mapping = aes(x= full_model$residuals)) + 
   geom_histogram(fill = "white", color = "black") +
   labs(x = "Residuals", y = "Frequency",
        title = "Histogram of Residuals")
@@ -887,40 +825,35 @@ ggplot(mapping = aes(x= full_model_non_cor$residuals)) +
 ```{r fig.height=6, fig.width=6}
 #Breush-Pagan Test - Homoscedasticity Assumption
 library(lmtest)
-bp <- bptest(full_model_non_cor)
+bp <- bptest(full_model)
   if (bp$p.value <= 0.05) {
     print("H0 rejected: Error variance spreads INCONSTANTLY/generating patterns (Heteroscedasticity)")
   } else {
     print("H0 failed to reject: Error variance spreads CONSTANTLY (Homoscedasticity)")
   }
-plot(full_model_non_cor, which = 1)
+plot(full_model, which = 1)
 ```
 
 #### Multicollinearity  
 
 ```{r}
 library(car)
-library(kableExtra)
-df_vif = vif(full_model_non_cor) %>% data.frame()
-#colnames(df_vif) = "VIF"
-#df_vif %>% arrange(desc(VIF))
+df_vif = vif(full_model) %>% data.frame()
+colnames(df_vif) = "VIF"
+df_vif %>% arrange(desc(VIF))
 ```
 
 ### Model Improvement
 
-#### Model Outliers/Influential Observations  
+#### Model Outliers/Influential Observations   
+
+Each of our three `weather_type_4` observations had significantly large leverage on our model fitting. Because of this we decided it would be best to remove these. Because of this, the `weather_type_4` variable consequently was removed from the training data set. 
 
 ```{r fig.height=12, fig.width=12}
 #Rownames were reset during train/test split
-out_lev <- c(7302, 7093)
+out_lev <- c(450, 7302, 7093)
 train <- train[-c(out_lev), ]
-
-#Re-train without outlier values
-full_model_rev <- lm(count_rentals ~ . - temp, data = train)
-
-#summary(full_model_rev)
-par(mfrow = c(2,2))
-plot(full_model_rev)
+train <- train %>% dplyr::select(-`weather_Type 4`)
 ```
 
 #### Target Variable Transformation 
@@ -987,22 +920,31 @@ test$cube_root_total <- (test$count_rentals)^(1/3)
 #### Multicollinearity (VIF) 
 
 ```{r, fig.width=7, fig.height=7}
-#hour causes this diagonal
-model_assumption_ver <- lm(cube_root_total ~ . - count_rentals - temp,
-                          data = train)
+#Could remove workingday & season_Summer from train df
+train <- train %>% dplyr::select(-c(workingday, season_Summer))
+```
 
-plot(model_assumption_ver)
-df_vif = vif(model_assumption_ver) %>% data.frame()
+
+#### Model - Assumptions Addressed
+
+```{r, fig.width=7, fig.height=7}
+full_model_improved <- lm(cube_root_total ~ . - count_rentals,
+                          data = train)
+par(mfrow = c(2,2))
+plot(full_model_improved)
+summary(full_model_improved)
+df_vif = vif(full_model_improved) %>% data.frame()
 colnames(df_vif) = "VIF"
 df_vif %>% arrange(desc(VIF))
 ```
+
 
 ### Reduced Models (Feature Selection) 
 
 ```{r fig.height=5, fig.width=8.5}
 library(leaps)
 
-OLS.regback <- leaps::regsubsets(cube_root_total ~ . - count_rentals - temp, train, method = "seqrep", nvmax = 175)
+OLS.regback <- leaps::regsubsets(cube_root_total ~ . - count_rentals, train, method = "seqrep", nvmax = 80)
 
 OLSregbacksum <- summary(OLS.regback)
 
@@ -1014,7 +956,7 @@ combined_df <- data.frame(
   BIC = unlist(bicmat)
 )
 
-combined_df[63:67,]
+combined_df[35:45,]
 
 par(mfrow = c(1,2))
 plot(OLSregbacksum$adjr2, xlab = "Number of Variables",
@@ -1022,13 +964,13 @@ plot(OLSregbacksum$adjr2, xlab = "Number of Variables",
     cex.main = 1.15, cex.lab = 1, cex.axis = 1.05, font.axis = 2,
     font.lab = 2, panel.first = grid(nx = NULL, ny = NULL, col = "gray",
         lty = 2))
-points(65, OLSregbacksum$adjr2[65], col = "darkred", cex = 2, pch = 20)
+points(36, OLSregbacksum$adjr2[36], col = "darkred", cex = 2, pch = 20)
 
 plot(OLSregbacksum$bic, xlab = "Number of Variables", ylab = "BIC",
     type = "l", lwd = 1.5, cex.main = 1.15, cex.lab = 1, cex.axis = 1.05,
     font.axis = 2, font.lab = 2, main = "Number of Variables Vs. BIC",
     panel.first = grid(nx = NULL, ny = NULL, col = "gray", lty = 2))
-points(65, OLSregbacksum$bic[65], col = "darkred", cex = 2, pch = 20)
+points(36, OLSregbacksum$bic[36], col = "darkred", cex = 2, pch = 20)
 ```
 
 ```{r}
@@ -1049,7 +991,7 @@ intercept_coefficient <- round(unname(best_model)[1], 4)
 
 # Define the named_coefficients variable
 named_coefficients <- setNames(best_coefficients, variable_names)
-
+length(variable_names)
 # Create the LaTeX equation
 equation <- paste("y =", intercept_coefficient, "+", paste(named_coefficients, variable_names, sep = " * ", collapse = " + "), "")
 ```
@@ -1079,7 +1021,7 @@ train_final <- train_final %>% rename(cube_root_total = colname[length(colname)]
 
 ```{r}
 #Train Final Model - Success (Same coef as original)
-stepwise_model <- lm(cube_root_total ~ . ,data = train_final)
+stepwise_model <- lm(cube_root_total ~ .  ,data = train_final)
 
 #Make Predictions
 pred_values_total_rentals <- predict(stepwise_model, newdata = test) %>% data.frame()
@@ -1124,6 +1066,7 @@ ggplot(pred_values_total_rentals, aes(x=fit, y=obs)) +
 ```{r}
 #Final Model Diagnostics
 plot(stepwise_model)
+summary(stepwise_model)
 ```
 
 ```{r}
