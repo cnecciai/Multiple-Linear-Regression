@@ -8,7 +8,7 @@ output:
     number_sections: yes
     toc_depth: '3'
 fontsize: 12pt
-geometry: margin=.80in
+geometry: margin=1in
 header-includes:
 - \usepackage{setspace}
 - \singlespacing
@@ -114,7 +114,7 @@ CBS$year <- factor(CBS$year, labels = c("2011", "2012"))
 CBS$month <- factor(CBS$month, labels = c("Jan", "Feb", "Mar", "Apr", "May", "Jun",
                                        "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"))
 CBS$holiday <- as.logical(CBS$holiday)
-CBS$day <- factor(CBS$day, labels = c("Sunday", "Monday", "Tueday", "Wednesday", "Thursday", "Friday", "Saturday"))
+CBS$day <- factor(CBS$day, labels = c("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"))
 CBS$workingday <- as.logical(CBS$workingday)
 CBS$weather <- factor(CBS$weather, labels = c("Type 1", "Type 2", "Type 3", "Type 4"))
 
@@ -212,7 +212,7 @@ CBS %>% ggplot(aes(count_rentals)) +
 
 ##### `date`
 
-The `date` distribution revealed that not every unique value of date has an expected equivalent number of hourly interval measurements. When considering the **731** distinct date values present in our dataset, the majority of each contained twenty-four or twenty-three of the expected hourly observations. However, fourteen of the dates contained less and in some cases contained a mere single hourly observation, which in total equated to **233** hours worth of missing observations.  While the fact that these distinct dates have missing hour-to-hour observations, it does not immediately follow that these observations are necessarily outliers. However, it should be noted that Capital Bike Shares' hour-to-hour observational system has hourly gaps, which would otherwise provide useful descriptive and predictive analytics. 
+The `date` distribution revealed that not every unique value of date has an expected equivalent number of hourly interval measurements. When considering the **731** distinct date values present in our dataset, the majority of each contained twenty-four or twenty-three of the expected hourly observations. However, fourteen of the dates contained less and in some cases contained a mere single hourly observation, which in total equated to **233** hours worth of missing observations.  Capital Bike Shares' hour-to-hour observational system has hourly gaps, which would otherwise provide useful descriptive and predictive analytics. 
 
 ```{r}
 # Distinct Values per Variable
@@ -247,7 +247,7 @@ CBS %>% group_by(date) %>%
  
 ##### `season`   
 
-The seasonal distribution regarding the number of observations between Fall, Winter, Spring, and Summer revealed only a slight imbalance. Fall contained the fewest of these with 4232 observations, Winter with 4242 observations, Spring with 4409 observations, and Summer contained the most with 4496 observations. As a whole, the  distribution was evenly distributed with each season containing approximately within +/- 1% of a quarter of the observations as would be expected. 
+As a whole, the `season` distribution was evenly distributed with each season containing approximately within +/- 1% of a quarter of the observations as would be expected. 
 
 ```{r}
 print(paste("Percentages of seasons:"))
@@ -300,7 +300,7 @@ CBS %>%
 
 ##### `month`    
 
-Across all monthly grouped observations, the distribution of the `month` variable was approximately uniform. However, the month of February appeared unique with it having the fewest number of observations of 1341. May had the highest count of recorded observations with 1488 recorded. All other months' counts of observations fell within these two counts of 1341 to 1488 (about 8% each of total observations). 
+Across all monthly grouped observations, the distribution of the `month` variable was approximately uniform. However, the month of February appeared unique with it having the fewest number of observations of 1341. Otherwise, this distribution was mostly even.
 
 ```{r fig.width=4.7}
 print(paste("Percentages of months:"))
@@ -391,7 +391,7 @@ CBS %>%
 
 ##### `weather`    
 
-We noted an immediate yet unsurprising distribution with the `weather` variable. A vast majority of our observations were of Type 1, meaning that a majority of our observations were recorded in favorable weather conditions. The second largest proportion of observations were of Type 2 which included cloudy and misty weather. The third largest were of Type 3 which indicates rain/snow and thunderstorm conditions. The smallest proportion were those recorded for Type 4. These observations were of extreme weather conditions, including heavy rain/snow, severe thunderstorms/etc.
+A vast majority of our `weather` observations were of Type 1, meaning that a majority of our observations were recorded in favorable weather conditions. The second largest proportion of observations were of Type 2 which included cloudy and misty weather. The third largest were of Type 3 which indicates rain/snow and thunderstorm conditions. The smallest proportion were those recorded for Type 4. These observations were of extreme weather conditions, including heavy rain/snow, severe thunderstorms/etc.
 
 ```{r}
 #weather
@@ -452,7 +452,7 @@ CBS %>% ggplot(aes(temp)) +
 
 ##### `atemp`   
 
-The distribution of `atemp` has been normalized and represents the "real-feel" temperature in Celsius.  Being that `atemp` is undoubtedly related to influences from the season and weather, our intuition tells us that `atemp` will be an important factor in determining when people will be likely to rent Capital Bike Share bicycles.
+The distribution of `atemp` has been normalized and represents the "real-feel" temperature in Celsius.  Being that `atemp` is undoubtedly related to influences from the season and weather, our intuition tells us that `atemp` will be an important factor in determining bicycles rentals.
 
 ```{r}
 #Retrieve summary statistics for atemp
@@ -535,12 +535,9 @@ datatable(numVars, class = 'cell-border stripe')
 
 ##### `holiday`   
 
-Inspection of our `holiday` variable revealed dates which should have been marked as holidays and others which should not have been. We re-labeled these observations based on official [federally recognized holidays](https://www.commerce.gov/hr/employees/leave/holidays).    
+|       Inspection of our `holiday` variable revealed dates which should have been marked as holidays and others which should not have been. We re-labeled these observations based on official [federally recognized holidays](https://www.commerce.gov/hr/employees/leave/holidays).    
 
-In comparison to our dataset: **2011-01-01, 2011-12-25, 2012-01-01, and 2012-11-11** were incorrectly mislabeled as *not* being holidays.  **2011-12-26, 2012-01-02, and 2012-11-12** were mislabeled as **being** holidays. The aforementioned dates were corrected as to maintain consistency with federally recognized holidays. **2011-04-15 and 2012-04-16**, while not being federally recognized holidays, are dates of observance for Emancipation Day in the Washington D.C. Area. Due to the similar holiday-like observance of Emancipation Day in our area of interest, these two dates will be labeled as holidays.   
-
-The final distribution remains highly disproportionate yet expected, with only 525 of 17379 observations being labeled as holidays.
-
+|       In comparison to our dataset: **2011-01-01, 2011-12-25, 2012-01-01, and 2012-11-11** were incorrectly mislabeled as *not* being holidays.  **2011-12-26, 2012-01-02, and 2012-11-12** were mislabeled as **being** holidays. The aforementioned dates were corrected as to maintain consistency with federally recognized holidays. **2011-04-15 and 2012-04-16**, while not being federally recognized holidays, are dates of observance for Emancipation Day in the Washington D.C. Area. Due to the similar holiday-like observance of Emancipation Day in our area of interest, these two dates will be labeled as holidays.   
 
 ```{r} 
 holidayDates <- CBS[CBS$holiday == TRUE,]
@@ -594,7 +591,7 @@ CBS %>%
 
 ##### `workingday`   
 
-The distribution of `workingday` reveals that we have many more observations consisting of days in which people worked than not. This is consistent when considering that no Saturday, Sunday, weekday/end holidays can be working days.  
+The distribution of `workingday` shows more observations consisting of days in which people worked than not. This is consistent when considering that no Saturday, Sunday, weekday/end holidays can be working days.  
 
 ```{r}
 print(paste("Percentages of workingday Observations:"))
@@ -620,10 +617,12 @@ CBS %>%
 
 ## Correlation   
 
-We decided to investigate the extent to which our variables are linearly related to one another with a visualized correlation matrix~[Figure XX]~. Here we are concerned primarily with those relationships related to that of our target, `count_rentals` and continuous predictor variables. Here we list the most noteworthy relationships:  
+|       We decided to investigate the extent to which our variables are linearly related to one another with a visualized correlation matrix~[Figure XX]~. Here we are concerned with those relationships related to that of our target, `count_rentals` and continuous predictor variables. Here we list the most noteworthy findings:  
 
 
-- Being that `temp` and `atemp` both aim to measure normalized Celsius, it is unsurprising that these variables exhibit a near exact linear relationship with one another. We additionally see they both are moderately, positively related to our target variable to the same degree. Naively including both `temp` and `atemp` in our modeling process would result in multicollinearity, in which we have variables competing to explain our target variable with redundant information. This can cause our estimates our model coefficients to become unstable. To maintain a robust regression model, we will choose only one of these variables to predict the number of rentals.  
+- Being that `temp` and `atemp` both aim to measure normalized Celsius, it is unsurprising that these variables exhibit a near exact linear relationship with one another. We additionally see they both are moderately, positively related to our target variable to the same degree. Naively including both `temp` and `atemp` in our modeling process would result in multicollinearity, in which we have variables competing to explain our target variable with redundant information. This can cause our estimates our model coefficients to become unstable.   
+
+To maintain a robust regression model and avoid multicollinearity, we will choose only one of these variables,`atemp`, to be including in the modeling process.  
 
 - Our target is to some degree negatively correlated with `hum`, or the humidity. Being that humidity includes potential precipitation such as rain, mist, snow, and others, it is unsurprising we might find that `count_rentals` decreases as `hum` increases.   
 
@@ -653,9 +652,9 @@ chart.Correlation(corr_df)
 
 ### Temperature and Target Relationship
 
-We examined the multi-variable relationship between our temperature related variables, `temp`,`atemp`, and `count_rentals`. Based on our graph, we found that unsurprisingly, the highest numbers of rentals occurred in normalized Celsius values we believe to be indicative of favorable conditions.     
+|       We examined the multi-variable relationship between our temperature related variables, `temp`,`atemp`, and `count_rentals`. Based on our graph, we found that unsurprisingly, the highest numbers of rentals occurred in normalized Celsius values we believe to be indicative of favorable conditions.     
 
-This plot also revealed twenty-four observations having the exact same `atemp` value of **0.2424**, but `temp` values which were relatively high and variable in relation, ranging from **0.62 to 0.86**. Delving into these observations, we found that all were recorded sequentially, on the exact same day(*2012-08-17*) and under the same weather conditions(*Type 1*). The changing levels of humidity and wind speed lead us to further believe that the real feel temperature should have likewise varied when compared to other observations of similar values in the dataset.   
+|       This plot also revealed twenty-four observations having the exact same `atemp` value of **0.2424**, but `temp` values which were relatively high and variable in relation, ranging from **0.62 to 0.86**. Delving into these observations, we found that all were recorded sequentially, on the exact same day(*2012-08-17*) and under the same weather conditions(*Type 1*). The changing levels of humidity and wind speed lead us to further believe that the real feel temperature should have likewise varied when compared to other observations of similar values in the dataset.   
 
 ```{r fig.height=4.5, fig.width=5}
 CBS %>% ggplot(aes(atemp, temp)) +
@@ -691,9 +690,9 @@ rownames(CBS) <- NULL
 
 ### Hourly Rental Trends 
 
-Due to the widespread availability of bicycles as a mode of transportation at all hours of the day, our intuition led us to investigate possible patterns of usage based solely on time. What we uncovered, showed that during working days, there is strong indication that bicycles are being utilized as a primary mode of transportation to and from work. Most notably, it is Capital Bike Shares `registered` rental users that are driving this trend. We see that between all rentals and only registered, the trend is nearly identical~[Figure XX, Figure XX]~. Neither `casual` rentals nor rentals occurring on Saturday/Sunday rentals exhibit this trend of bicycle usage, adding further evidence to our speculation~[Figure XX, Figure XX]~. 
+|       Due to the widespread availability of bicycles as a mode of transportation at all hours of the day, our intuition led us to investigate possible patterns of usage based solely on time. What we uncovered, showed that during working days, there is strong indication that bicycles are being utilized as a primary mode of transportation to and from work. Most notably, it is Capital Bike Shares `registered` rental users that are driving this trend. We see that between all rentals and only registered, the trend is nearly identical~[Figure XX, Figure XX]~. Neither `casual` rentals nor rentals occurring on Saturday/Sunday rentals exhibit this trend of bicycle usage, adding further evidence to our speculation~[Figure XX, Figure XX]~. 
 
-It may be the case that Capital Bike Share bicycles are used as a primary mode of transportation for the majority of `registered` riders during working hours. Before 9:00AM, we note an upward trend of rentals followed by a stark decrease thereafter. We interpret this as individuals arriving at work followed by a sharp increase of usage around 4:00PM/5:00PM when people typically leave work and commute home. 
+|       It may be the case that Capital Bike Share bicycles are used as a primary mode of transportation for the majority of `registered` riders during working hours. Before 9:00AM, we note an upward trend of rentals followed by a stark decrease thereafter. We interpret this as individuals arriving at work followed by a sharp increase of usage around 4:00PM/5:00PM when people typically leave work and commute home. 
 
 ```{r fig.width=8, fig.height = 10} 
 #Examining the relationship between day of the week and hourly trends
@@ -755,11 +754,9 @@ CBS[!(CBS$day %in% c("Sunday", "Saturday")),] %>%
 
 ## Feature Reduction   
 
-`date` - Our team reasoned that the creation of **731** distinct variables representing `date` could have severe impacts, mainly high VIF and overfitting, on model performance when regressing our target variable. No unique information is provided by `date`. All other information is already found in our `year` and `month`, and `day` variable.  
+`date` - Our team reasoned that the creation of **731** distinct variables representing `date` could have severe impacts (particularly high VIF and overfitting) on model performance when regressing our target variable. No unique information is provided by `date`. All other information is already found in our `year` and `month`, and `day` variable.  
 
 To avoid these drawbacks, we have decided to disregard the `date` variable from the model building process.   
-
-`temp` - As noted before, multicollinearity would be present in our model if we including variables `temp` and `atemp`. Therefore, we have decided to disregard `temp` from the modeling process, as we believe that `atemp` will more accurately prove useful in accurately predicting the target variable.  
 
 ## Feature Engineering
 
@@ -785,7 +782,7 @@ CBS <- CBS %>% dplyr::select(-c(date, temp))
 
 ## Data Partition    
 
-With our goals centered on finding the most significant predictors with respect to determining the total number of hour-by-hour rentals, we decided to partition our data 80% towards training the model and 20% for testing model performance. 
+|       With our goals centered on finding the most significant predictors with respect to determining the total number of hour-by-hour rentals, we decided to partition our data 80% towards training the model and 20% for testing model performance. Allowing a significant majority of our overall dataset to go towards the model fitting process enables us to get better coefficient estimates as long as we have clean, non-noisy data.
 
 ```{r}
 library(leaps) #Best Subset Selection
@@ -946,7 +943,9 @@ colnames(df_vif) = "VIF"
 df_vif %>% arrange(desc(VIF))
 ```
 
-## Stepwise Selection (Reduced Model)   
+## Stepwise Selection (Reduced Model)    
+
+
 
 ### Model Assumptions  
 
@@ -955,33 +954,51 @@ df_vif %>% arrange(desc(VIF))
 ```{r fig.height=5, fig.width=8.5}
 library(leaps)
 
-OLS.regback <- leaps::regsubsets(cube_root_total ~ . - count_rentals, train, method = "seqrep", nvmax = 80)
-
+OLS.regback <- leaps::regsubsets(cube_root_total ~ . - count_rentals, train, method = "seqrep", nvmax = 45)
 OLSregbacksum <- summary(OLS.regback)
+```
 
+
+
+```{r fig.height=8, fig.width=8.5}
 adjr2mat <- data.frame(t(OLSregbacksum$adjr2))
 bicmat <- data.frame(t(OLSregbacksum$bic))
+cpmat <- data.frame(t(OLSregbacksum$cp))
+rsqmat <- data.frame(t(OLSregbacksum$rsq))
 
 combined_df <- data.frame(
+  R2 = unlist(rsqmat),
   Adj_R2 = unlist(adjr2mat),
-  BIC = unlist(bicmat)
+  BIC = unlist(bicmat),
+  Mallow_Cp = unlist(cpmat)
 )
 
-combined_df[35:45,]
+#combined_df[35:45,]
 
-par(mfrow = c(1,2))
+par(mfrow = c(2,2))
 plot(OLSregbacksum$adjr2, xlab = "Number of Variables",
     ylab = "Adjusted RSq", type = "l", lwd = 1.5, main = "Number of Variables Vs. Adjusted R2",
     cex.main = 1.15, cex.lab = 1, cex.axis = 1.05, font.axis = 2,
     font.lab = 2, panel.first = grid(nx = NULL, ny = NULL, col = "gray",
         lty = 2))
-points(36, OLSregbacksum$adjr2[36], col = "darkred", cex = 2, pch = 20)
+points(36, OLSregbacksum$adjr2[36], col = "darkred", cex = 2, pch = 20) 
+
+plot(OLSregbacksum$cp, xlab = "Number of Variables", ylab = "Cp",
+    type = "l", lwd = 1.5, cex.main = 1.15, cex.lab = 1, cex.axis = 1.05,
+    font.axis = 2, font.lab = 2, main = "Number of Variables Vs. Mallow's Cp",
+    panel.first = grid(nx = NULL, ny = NULL, col = "gray", lty = 2))
+points(36, OLSregbacksum$cp[36], col = "darkred", cex = 2, pch = 20)
 
 plot(OLSregbacksum$bic, xlab = "Number of Variables", ylab = "BIC",
     type = "l", lwd = 1.5, cex.main = 1.15, cex.lab = 1, cex.axis = 1.05,
     font.axis = 2, font.lab = 2, main = "Number of Variables Vs. BIC",
     panel.first = grid(nx = NULL, ny = NULL, col = "gray", lty = 2))
-points(36, OLSregbacksum$bic[36], col = "darkred", cex = 2, pch = 20)
+points(36, OLSregbacksum$bic[36], col = "darkred", cex = 1, pch = 20)
+
+plot(OLSregbacksum$rss, xlab = "Number of Variables", ylab = "RSS",
+    type = "l", lwd = 1.5, cex.main = 1.15, cex.lab = 1, cex.axis = 1.05,
+    font.axis = 2, font.lab = 2, main = "Number of Variables Vs. RSS",
+    panel.first = grid(nx = NULL, ny = NULL, col = "gray", lty = 2))
 ```
 
 ```{r}
@@ -1002,11 +1019,16 @@ intercept_coefficient <- round(unname(best_model)[1], 4)
 
 # Define the named_coefficients variable
 named_coefficients <- setNames(best_coefficients, variable_names)
-length(variable_names)
+
 # Create the LaTeX equation
 equation <- paste("y =", intercept_coefficient, "+", paste(named_coefficients, variable_names, sep = " * ", collapse = " + "), "")
 ```
 
+\begin{center}
+Final Model Equation
+\end{center}  
+
+`cube_root_total` = $\beta_0$ + $\beta_1$`holiday` + $\beta_2$`atemp` + $\beta_3$`hum` + $\beta_4$`season_Spring` + $\beta_5$`season_Fall` + $\beta_6$`year_2012` + $\beta_7$`month_May` + $\beta_8$`month_Aug` + $\beta_9$`month_Sep` +$\beta_{10}$`day_Friday` + $\beta_{11}$`day_Saturday` + $\beta_{12}$`hour_1:00PM` + $\beta_{13}$`hour_10:00AM` + $\beta_{14}$`hour_10:00PM` + $\beta_{15}$`hour_11:00AM` + $\beta_{16}$`hour_11:00PM` + $\beta_{17}$`hour_12:00AM` + $\beta_{18}$`hour_12:00PM` + $\beta_{19}$`hour_2:00AM` + $\beta_{20}$`hour_2:00PM` + $\beta_{21}$`hour_3:00AM` + $\beta_{22}$`hour_3:00PM` + $\beta_{23}$`hour_4:00AM` + $\beta_{24}$`hour_4:00PM` + $\beta_{25}$`hour_5:00AM` + $\beta_{26}$`hour_5:00PM` + $\beta_{27}$`hour_6:00AM` + $\beta_{28}$`hour_6:00PM` + $\beta_{29}$`hour_7:00AM` + $\beta_{30}$`hour_7:00PM` + $\beta_{31}$`hour_8:00AM` + $\beta_{32}$`hour_8:00PM` + $\beta_{33}$`hour_9:00AM` + $\beta_{34}$`hour_9:00PM` + $\beta_{35}$`weather_Type_2` + $\beta_{36}$`weather_Type_3` + $\epsilon$
 
 ```{r}
 #---Prepare Final Dataset---  
