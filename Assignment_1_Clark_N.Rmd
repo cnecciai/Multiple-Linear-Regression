@@ -17,7 +17,7 @@ linkcolor: blue
 
 ```{r setup, echo=FALSE, include=FALSE, message=FALSE, warning=FALSE}
 #Default Setup
-knitr::opts_chunk$set(include = FALSE, echo = FALSE, tidy=TRUE, cache=FALSE, message=FALSE, warning=FALSE,tidy.opts=list(width.cutoff=55, keep.blank.line=FALSE),fig.align='center', fig.width=3.50, fig.height=3.50, dpi = 300)
+knitr::opts_chunk$set(include = FALSE, echo = FALSE, tidy=TRUE, cache=FALSE, message=FALSE, warning=FALSE,tidy.opts=list(width.cutoff=55, keep.blank.line=FALSE),fig.align='center', fig.width=3.50, fig.height=2.75, dpi = 300)
 ```  
 
 \pagebreak   
@@ -26,12 +26,11 @@ knitr::opts_chunk$set(include = FALSE, echo = FALSE, tidy=TRUE, cache=FALSE, mes
 library(visdat)
 library(car)
 library(corrplot)
-library(e1071) #skewness()
+library(e1071)
 library(tidyverse)
-library(ggfortify) #use for autoplot diagnostics
 
 #Set default theme for ggplot
-theme_set(theme_minimal()) 
+theme_set(theme_light()) 
 ```
 
 
@@ -44,19 +43,25 @@ theme_set(theme_minimal())
 
 |       
 
-# Problem Statement
+# Problem Statement and Approach
 
-|       We have been tasked with identifying the most influential variables relative to their predictive power affecting the total hour-by-hour bicycle rentals. Beginning with an exploratory data analysis and inspection of our dataset, we aim to systematically determine these variables with respect to their predictive power through a well-documented, granular analysis.   
+Our primary tasks in this analysis were twofold:   
 
-|       Our modeling process will culminate in a model which will not only accurately predict rental demand, but simultaneously provide an assumption-backed, statistical performance evaluation confirming our models' reliability. Below we provide the methodology of our approach, beginning with an inspection and analysis of our data, followed by our modeling selection strategy and diagnostic testing to ensure model generalizability. Finally, we conclude with our recommendations and takeaways.   
+- Identifying the most influential variables relative to their predictive power in determining the total hour-by-hour bicycle rentals and,  
+- Fitting a multiple regression model predicting the demand for the total hour-by-hour bicycle rentals.
+
+|       Beginning with an inspection of our dataset and subsequent exploratory data analysis, we aimed to systematically determine those variables which we believed have significant relation to the target variable. Our dataset consisted of 17,379 observations across 17 features. After a well-documented, granular analysis, including univariate and multivariate visualizations, we utilized our findings in a comprehensive modeling process. This process culminated in a multiple linear regression model that not only accurately predicted rental demand, but simultaneously provided an assumption-backed evaluation confirming our models' reliability.
+
+|       Below we have provided the methodology of our approach, beginning with an inspection and analysis of our data, followed by our modeling selection strategy and diagnostic testing to ensure model generalizability. Finally, we conclude with our recommendations and takeaways.    
+
 
 # Methodology
 
 ## Data Preprocessing     
 
-We began our approach by taking an overview of the integrity of our dataset. We discovered no missing values nor duplicated observations. We did, however, note variables which would be irrelevant to the overall analysis and took steps to filter out these irrelevant features. 
+|       We began our approach with an overview of the integrity of our dataset's structure. We discovered no missing values nor duplicated observations. Neither imputation nor duplicate observation removal was needed. We did, however, note variables which had data types that were non-representative of the underlying values
 
-Notes: Variables were renamed for descriptive clarity. No missing nor duplicate data detected. We reevaluated each variables underlying data type corresponding values, and when necessary, replaced each with more appropriate types and corresponding values. [Explain why you did this?] Make note of the changes that happened as a result and the final dimensionality of the dataset after pre-processing.
+Variables `dteday`, `season`, `yr`, `mnth`, `hr`, `holiday`, `weekday`, `workingday`, and `weathersit` were all considered to have data types and values which were unclear and in need of re-evaluation. As such, we decided to apply new data types to these variables, effectively categorizing them and applying appropriate labels. The `dteday`, `yr`, `mnth`, `hr`, `weekday`, `weathersit`, and `cnt` were renamed for additional clarity.
 
 ```{r}
 #Read In Dataset & Initial Look
@@ -65,10 +70,6 @@ CBS %>% glimpse()
 ``` 
 
 ```{r}
-#Dropping Variables Irrelevant to Analysis
-
-
-
 #Rename Variables for descriptive clarity
 CBS <- CBS %>% rename(date = dteday,
                       year = yr,
@@ -77,13 +78,13 @@ CBS <- CBS %>% rename(date = dteday,
                       day = weekday,
                       weather = weathersit,
                       count_rentals = cnt)
-
+CBS <- CBS %>% dplyr::select(-instant)
 CBS %>% glimpse()
 ```
 
 ```{r}
 #Visualize for Missing Data
-vis_miss(CBS, sort_miss = T) + 
+fig.1 <- vis_miss(CBS, sort_miss = T) + 
   labs(y = "NA Values") +
   theme(axis.text.x.bottom = element_text(angle = 60, vjust = 0)) +
   coord_flip()
@@ -96,6 +97,14 @@ duplicates <- CBS[which(duplicated(distinctCheck)), ]
 if ((nrow(duplicates)) == 0) {
   print("No duplicates detected") }
 ```
+
+```{r fig.height=4, fig.width=6}
+fig.2 <- vis_dat(CBS) + theme(axis.title.y = element_blank(),
+                     axis.text.x.bottom = element_blank()) +
+  labs(title = "Data Types of Capital Bike Share Dataset") +
+  scale_fill_brewer(palette = 2)
+```
+
 
 ```{r}
 #Reevaluate data types
@@ -133,6 +142,7 @@ for (i in 1:nrow(CBS)) {
 CBS$hour <- factor(newHours)
 ```
 
+
 ```{r fig.height=4, fig.width=6}
 #Visualize final data types in dataset
 vis_dat(CBS) + theme(axis.title.y = element_blank(),
@@ -147,13 +157,13 @@ print(paste("Number of observations/rows: ", dim(CBS)[1]))
 print(paste("Number of columns/variables: ", dim(CBS)[2]))
 ```
 
-## Exploratory Data Analysis   
+## Exploratory Data Analysis    
 
-## Univariate Analysis 
+|       To better understand our variables' distributions, values, and relationships with each other and our target variable, we conducted a thorough exploratory data analysis. Our primary focus is to examine each of our variables' summary statistics and distributions while investigating the underlying values for patterns, inconsistencies, and anomalies which may affect our analysis. 
 
-### Target Variables   
+### Univariate Analysis 
 
-Each of our three target variables could be seen to have vastly positively skewed distributions. 
+#### Target Variable   
 
 ```{r, warning = FALSE}
 #Summary Statistics for Continuous Variables
@@ -172,10 +182,14 @@ numSummary = function(var, rowname) {
 }
 ```
 
+##### `count_rentals`  
+
+|       We are focused primarily on finding relationships significant to and in predicting the target variable, `count_rentals`(previously `cnt`). Each row/observation in our dataset is taken on an hourly basis. Our target is that corresponding hourly count of rentals that have occurred. Our histogram displaying the distribution overlayed with a density line shows us graphically that `count_rentals` is moderately right skewed. There is serious variability in the hour-by-hour rentals, with a minimum of a single rental to a maximum of nearly a thousand rentals per hour, but with 50% of our observations being less than **142** bicycle rentals per hour, marked by the red dashed line. 
+
 ```{r}
 #Retrieve summary statistics for count_rentals
 results = numSummary(CBS$count_rentals, "count_rentals")
-results
+print(results)
 
 #count_rentals distribution
 CBS %>% ggplot(aes(count_rentals)) +
@@ -190,16 +204,15 @@ CBS %>% ggplot(aes(count_rentals)) +
     axis.title.y = element_text(size = 8, color = "black"),
     axis.text.x = element_text(size = 8, color = "black"),
     axis.text.y = element_text(size = 8, color = "black")
-  )
+  ) +
+  geom_vline(aes(xintercept = results$Median), color = "red", linetype = "dashed")
 ```
 
-### Predictor Variables   
+#### Categorical Variables  
 
-#### Categorical Variables
+##### `date`
 
-##### `date` 
-
-An inspection of the `date` variable's distribution revealed that not every discrete value of date has an expected equivalent number of hourly interval measurements. For the **731** distinct date values present in our data set, when grouped by date, the majority of each discrete date contained twenty-four or twenty-three of the expected hourly observations. However, fourteen of the dates contained less and in some cases contained a mere single hourly observation, which in total equated to **233** hours worth of missing observations.  While the fact that these distinct dates have missing hour-to-hour observations, it does not immediately follow that these observations are necessarily outliers. However, it should be noted that Capital Bike Shares' hour-to-hour observational system has hourly gaps, which would otherwise provide useful descriptive and predictive analytics. 
+The `date` distribution revealed that not every unique value of date has an expected equivalent number of hourly interval measurements. When considering the **731** distinct date values present in our dataset, the majority of each contained twenty-four or twenty-three of the expected hourly observations. However, fourteen of the dates contained less and in some cases contained a mere single hourly observation, which in total equated to **233** hours worth of missing observations.  While the fact that these distinct dates have missing hour-to-hour observations, it does not immediately follow that these observations are necessarily outliers. However, it should be noted that Capital Bike Shares' hour-to-hour observational system has hourly gaps, which would otherwise provide useful descriptive and predictive analytics. 
 
 ```{r}
 # Distinct Values per Variable
@@ -230,14 +243,11 @@ CBS %>% group_by(date) %>%
        title = "Dates with Missing Hourly Observations") +
   theme(axis.text.x = element_text(angle = 35),
         plot.caption = element_text(size = 6))
-
-#Decide whether or not to include these observations at a later time...
-CBS[CBS$date %in% c(low_count_obs$date),]
 ```
  
 ##### `season`   
 
-The seasonal distribution with regard to the number of recorded observations between Fall, Winter, Spring, and Summer revealed only a slight imbalance. Fall contained the fewest of these with 4232 observations, Winter with 4242 observations, Spring with 4409 observations, and Summer contained the most with 4496 observations. As a whole, the  distribution was evenly distributed with each season containing approximately within +/- 1% of a quarter of the observations as would be expected. 
+The seasonal distribution regarding the number of observations between Fall, Winter, Spring, and Summer revealed only a slight imbalance. Fall contained the fewest of these with 4232 observations, Winter with 4242 observations, Spring with 4409 observations, and Summer contained the most with 4496 observations. As a whole, the  distribution was evenly distributed with each season containing approximately within +/- 1% of a quarter of the observations as would be expected. 
 
 ```{r}
 print(paste("Percentages of seasons:"))
@@ -321,7 +331,7 @@ CBS %>%
 
 When observing a sorted hourly distribution from 12:00AM to 11:00PM, we found that the count of each distinct hour were nearly equal. However, a trend in the number of observations can be seen with a decrease beginning at approximately 1:00AM and continuing until 3:00AM when it then increases through 6:00AM. 
 
-```{r}
+```{r fig.width=5}
 #hour
 print(paste("Percentages of Hourly Observations:"))
 (prop.table(table(CBS$hour)) * 100) %>% round(2)
@@ -353,7 +363,7 @@ hourDF %>%
 
 ##### `day`     
 
-The value counts for the `day` variable were all nearly approximate.
+The distribution across the `day` variable were all nearly approximate for each of the seven days of the week.
 
 ```{r}
 print(paste("Percentages of days:"))
@@ -381,7 +391,7 @@ CBS %>%
 
 ##### `weather`    
 
-We found an immediately noticeable yet unsurprising distribution with the `weather` variable. **11413** of the observations were of Type 1, indicating the majority of our observations were recorded in favorable weather conditions. **4544** observations were of Type 2 and **1419** were of Type 3. A mere **3** observations were recorded for Type 4.
+We noted an immediate yet unsurprising distribution with the `weather` variable. A vast majority of our observations were of Type 1, meaning that a majority of our observations were recorded in favorable weather conditions. The second largest proportion of observations were of Type 2 which included cloudy and misty weather. The third largest were of Type 3 which indicates rain/snow and thunderstorm conditions. The smallest proportion were those recorded for Type 4. These observations were of extreme weather conditions, including heavy rain/snow, severe thunderstorms/etc.
 
 ```{r}
 #weather
@@ -411,7 +421,12 @@ CBS %>%
 
 #### Continuous Variables  
 
-##### `temp`    
+
+Note: Additional summary statistics for each of the continuous variables can be found in the Appendix in Figure 6. Each of our continuous variables were pre-normalized which in turn will help us determine their importance in predicting the target with respect to one another. Additionally, each continuous variables distribution can be found in Figure X.
+
+##### `temp`     
+
+The distribution of `temp` has been normalized to represent the actual temperature in Celsius. 
 
 ```{r}
 #Retrieve summary statistics for temp
@@ -421,7 +436,7 @@ tempSummary
 
 #temp Distribution
 CBS %>% ggplot(aes(temp)) +
-  geom_histogram(aes(y = after_stat(density)), fill = "blue", color = "black", alpha = 0.6) +
+  geom_histogram(aes(y = after_stat(density)), bins = 20, fill = "blue", color = "black", alpha = 0.6) +
   geom_density(adjust = 3) +
   labs(x = "Normalized Celcius",
        y = "Density", 
@@ -435,7 +450,9 @@ CBS %>% ggplot(aes(temp)) +
 ```
 
 
-##### `atemp`  
+##### `atemp`   
+
+The distribution of `atemp` has been normalized and represents the "real-feel" temperature in Celsius.  Being that `atemp` is undoubtedly related to influences from the season and weather, our intuition tells us that `atemp` will be an important factor in determining when people will be likely to rent Capital Bike Share bicycles.
 
 ```{r}
 #Retrieve summary statistics for atemp
@@ -445,7 +462,7 @@ tempFCSummary
 
 #atemp Distribution
 CBS %>% ggplot(aes(atemp)) +
-  geom_histogram(aes(y = after_stat(density)), fill = "blue", color = "black", alpha = 0.6) +
+  geom_histogram(aes(y = after_stat(density)), bins = 20, fill = "blue", color = "black", alpha = 0.6) +
   geom_density(adjust = 3) +
   labs(x = "Normalized - Real Feel Celcius",
        y = "Density", 
@@ -458,7 +475,9 @@ CBS %>% ggplot(aes(atemp)) +
     axis.text.y = element_text(size = 8, color = "black"))
 ``` 
 
-##### `hum`   
+##### `hum`    
+
+Despite the distribution of `hum` representing humidity being normalized, we see that a majority of the observations contain some degree of humidity. Being that `hum` possibly includes rain, snow, or other precipitation, we might see that it negatively impacts the number of rentals. 
 
 ```{r}
 #Retrieve summary statistics for humidity
@@ -481,7 +500,9 @@ CBS %>% ggplot(aes(hum)) +
     axis.text.y = element_text(size = 8, color = "black"))
 ```
 
-##### `windspeed`     
+##### `windspeed`      
+
+We have a uniquely zero-inflated, skewed distribution with the `windspeed` variable. Quite a few of our observations are marked as having zero `windspeed`, with a notable gap between zero and the next marked observation. It may be the case that these readings are of truly zero `windspeed` or that the wind was so negligible within this gap of ranges that they were marked as zero. 
 
 ```{r}
 #Retrieve summary statistics for windspeed
@@ -514,11 +535,11 @@ datatable(numVars, class = 'cell-border stripe')
 
 ##### `holiday`   
 
-Inspection of our `holiday` variable revealed dates which should have been marked as holidays and others which should not have been. We decided to re-label these observations based on official [federally recognized holidays](https://www.commerce.gov/hr/employees/leave/holidays).    
+Inspection of our `holiday` variable revealed dates which should have been marked as holidays and others which should not have been. We re-labeled these observations based on official [federally recognized holidays](https://www.commerce.gov/hr/employees/leave/holidays).    
 
-In comparison to our dataset: **2011-01-01(New Years), 2011-12-25(Christmas), 2012-01-01(New Years), and 2012-11-11(Veterans Day)** were incorrectly mislabeled as *not* being holidays.  **2011-12-26, 2012-01-02, and 2012-11-12** were mislabeled as **being** holidays. The aforementioned dates were corrected as to maintain consistency with federally recognized holidays. **2011-04-15 and 2012-04-16**, while not being federally recognized holidays, are  dates of observance for Emancipation Day in the Washington D.C. Area. Due to the similar holiday-like observance of Emancipation Day in our area of interest, these two dates will be labeled as holidays.   
+In comparison to our dataset: **2011-01-01, 2011-12-25, 2012-01-01, and 2012-11-11** were incorrectly mislabeled as *not* being holidays.  **2011-12-26, 2012-01-02, and 2012-11-12** were mislabeled as **being** holidays. The aforementioned dates were corrected as to maintain consistency with federally recognized holidays. **2011-04-15 and 2012-04-16**, while not being federally recognized holidays, are dates of observance for Emancipation Day in the Washington D.C. Area. Due to the similar holiday-like observance of Emancipation Day in our area of interest, these two dates will be labeled as holidays.   
 
-The final distribution remains highly disproportionate yet expected, with only 525 of 17379observations being labeled as holidays. The remaining **16854** were not holidays. 
+The final distribution remains highly disproportionate yet expected, with only 525 of 17379 observations being labeled as holidays.
 
 
 ```{r} 
@@ -573,17 +594,9 @@ CBS %>%
 
 ##### `workingday`   
 
-The distribution reveals that the percentage of total observations being labeled as a `workingday` are nearly twice the amount as not being labeled. 
+The distribution of `workingday` reveals that we have many more observations consisting of days in which people worked than not. This is consistent when considering that no Saturday, Sunday, weekday/end holidays can be working days.  
 
 ```{r}
-#Ensure workingday definition is maintained (neither weekend nor holiday)
-out = nrow(CBS[CBS$workingday == TRUE & (CBS$day %in% c('Saturday', 'Sunday') | CBS$holiday == TRUE), ])
-if (out == 0) {
-  print("Workingday Logic Consistent")
-}
-```
-
-```{r fig.width=5}
 print(paste("Percentages of workingday Observations:"))
 (prop.table(table(CBS$workingday)) * 100) %>% round(2)
 
@@ -605,19 +618,22 @@ CBS %>%
   coord_flip()
 ```
 
-## Correlation 
+## Correlation   
 
-We decided to investigate some of the stronger, more notable relationships made apparent by the correlation matrix just prior.
+We decided to investigate the extent to which our variables are linearly related to one another with a visualized correlation matrix~[Figure XX]~. Here we are concerned primarily with those relationships related to that of our target, `count_rentals` and continuous predictor variables. Here we list the most noteworthy relationships:  
 
-```{r}
-#Show relationships between predictors and dvs
-cor_matrix <- cor(CBS[sapply(CBS, is.numeric)])
-print(cor_matrix)
-```
-Positive correlations between our temperature related variables and target. 
-hum negatively related to our target variables
+
+- Being that `temp` and `atemp` both aim to measure normalized Celsius, it is unsurprising that these variables exhibit a near exact linear relationship with one another. We additionally see they both are moderately, positively related to our target variable to the same degree. Naively including both `temp` and `atemp` in our modeling process would result in multicollinearity, in which we have variables competing to explain our target variable with redundant information. This can cause our estimates our model coefficients to become unstable. To maintain a robust regression model, we will choose only one of these variables to predict the number of rentals.  
+
+- Our target is to some degree negatively correlated with `hum`, or the humidity. Being that humidity includes potential precipitation such as rain, mist, snow, and others, it is unsurprising we might find that `count_rentals` decreases as `hum` increases.   
+
+Overall, we see that each of our continuous predictor variables exhibits straight-line relationship with our target variable. This can be seen by examining the bottom row of Figure XX as indicated by scatter-plots and the red trend line. 
 
 ```{r  fig.height=6, fig.width=6}
+#Show relationships between predictors and dvs
+pred_CBS <- CBS %>% dplyr::select(-c(registered, casual))
+cor_matrix <- cor(pred_CBS[sapply(pred_CBS, is.numeric)])
+
 # Visualize the correlation matrix using the corrplot package
 corrplot(cor_matrix, method = "circle",
          type = "upper", order = "AOE", 
@@ -627,44 +643,27 @@ corrplot(cor_matrix, method = "circle",
 ```
 
 
-```{r  fig.height=6, fig.width=6}
+```{r  fig.height=8, fig.width=8}
 library(PerformanceAnalytics)
-corr_df <- CBS %>% select_if(is.numeric)
+corr_df <- pred_CBS %>% select_if(is.numeric)
 chart.Correlation(corr_df)
 ```
 
 ## Notable Multivariate Analysis  
 
-#### Temperature Related Variables
+### Temperature and Target Relationship
 
-Examining the multi-variable relationship between our temperature related variables, `temp`/`atemp`, and the target variables revealed the presence of multi-variate outliers.    
+We examined the multi-variable relationship between our temperature related variables, `temp`,`atemp`, and `count_rentals`. Based on our graph, we found that unsurprisingly, the highest numbers of rentals occurred in normalized Celsius values we believe to be indicative of favorable conditions.     
 
-These twenty-four observations had the exact same `atemp` value of **0.2424**, but `temp` values which were relatively high and variable in relation, ranging from **0.62 to 0.86**. Delving into these observations values, we discovered that they were all recorded sequentially, on the exact same day(*2012-08-17*) and under the same weather conditions(*Type 1*). The changing levels of humidity and wind speed lead us to further believe that the real feel temperature should have likewise varied when compared to other observations of similar values in the dataset.   
-
-When considering the evidence of these twenty-four `temp` and `atemp` multivariate as being observations, we will opt to remove these observations. This removal helps to ensure data integrity as we move towards the modeling process. 
-
-```{r atemp}
-CBS %>% ggplot(aes(atemp, temp)) +
-  geom_point(color = ifelse(CBS$atemp < .3 & CBS$temp > .5, "red", "black"),
-             alpha = 0.4,
-             size = 1) +
-  labs(x = "Real Feel - Celcius",
-       y = "Actual Temp - Celcius",
-       title = "Actual vs Real Feel Celcius",
-       subtitle = "Bivariate Outliers Denoted in Red ") +
-  theme(
-    plot.title = element_text(hjust = 0, face = "bold", size = 12),
-    axis.title.x = element_text(size = 8, color = "black"),
-    axis.title.y = element_text(size = 8, color = "black"),
-    axis.text.y = element_text(size = 8, color = "black")) 
-```
+This plot also revealed twenty-four observations having the exact same `atemp` value of **0.2424**, but `temp` values which were relatively high and variable in relation, ranging from **0.62 to 0.86**. Delving into these observations, we found that all were recorded sequentially, on the exact same day(*2012-08-17*) and under the same weather conditions(*Type 1*). The changing levels of humidity and wind speed lead us to further believe that the real feel temperature should have likewise varied when compared to other observations of similar values in the dataset.   
 
 ```{r fig.height=4.5, fig.width=5}
 CBS %>% ggplot(aes(atemp, temp)) +
   geom_raster(aes(fill = count_rentals)) +
   labs(x = "Real Feel - Celcius",
        y = "Actual Temp - Celcius",
-       title = "Rentals Relation to Temperature") +
+       title = "Rentals Relationship to Temperature Real & Feel",
+       subtitle = "Highest Occurrance During Favorable Degrees of Celcius") +
   scale_fill_viridis_c(option = "magma") +
   theme(
     plot.title = element_text(hjust = 0, face = "bold", size = 12),
@@ -673,7 +672,11 @@ CBS %>% ggplot(aes(atemp, temp)) +
     axis.text.y = element_text(size = 8, color = "black")) +
   geom_rect(aes(xmin = .21, ymin = .55, xmax = .27, ymax = .94), color = "red", fill = NA) +
   geom_text(x = .20, y = .5, label = "Outliers", color = "red")
+```
 
+When considering the evidence of these twenty-four `temp` and `atemp` multivariate as being observations, we will opt to remove these observations. This removal helps to ensure data integrity as we move towards the modeling process. 
+
+```{r fig.height=4.5, fig.width=5}
 #Examine multi-variate outliers to find potential reason of high `temp` values
 mvOutliers <- CBS[CBS$atemp < .3 & CBS$temp > .5,]
 mvOutliers
@@ -686,19 +689,15 @@ rownames(CBS) <- NULL
 ```
 
 
-#### Hourly Usage and Day  
+### Hourly Rental Trends 
 
-Due to the widespread availability of bicycles as a mode of transportation at all hours of the day, our intuition led us to investigate possible patterns of usage based solely on time. What we uncovered, showed that during working days, there is strong indication that bicycles are being utilized as a primary mode of transportation to and from work. 
+Due to the widespread availability of bicycles as a mode of transportation at all hours of the day, our intuition led us to investigate possible patterns of usage based solely on time. What we uncovered, showed that during working days, there is strong indication that bicycles are being utilized as a primary mode of transportation to and from work. Most notably, it is Capital Bike Shares `registered` rental users that are driving this trend. We see that between all rentals and only registered, the trend is nearly identical~[Figure XX, Figure XX]~. Neither `casual` rentals nor rentals occurring on Saturday/Sunday rentals exhibit this trend of bicycle usage, adding further evidence to our speculation~[Figure XX, Figure XX]~. 
 
-There is a notable pattern in bicycle rentals during the commute hours to/from work. It may be the case that Capital Bike Share bicycles are used as a primary mode of transportation for the majority of riders during working hours.  Before 9:00AM, we note an upward trend of rentals followed by a stark decrease just after. We are interpreting this as individuals arriving at work. This is followed by high usage at 5:00PM when people typically leave work, where the bikes may be rapidly available. This is then followed with slowly decreasing usage. 
+It may be the case that Capital Bike Share bicycles are used as a primary mode of transportation for the majority of `registered` riders during working hours. Before 9:00AM, we note an upward trend of rentals followed by a stark decrease thereafter. We interpret this as individuals arriving at work followed by a sharp increase of usage around 4:00PM/5:00PM when people typically leave work and commute home. 
 
-
-[POSSIBLY REMOVE THIS - DECIDE LATER]
-Based on these insights, we will be considering including an interaction term between `hour` and `day` in our models to capture this variability in rental numbers. Doing so will also allow us to capture the high usage trends during weekend hours as well. 
-
-```{r fig.width=5, fig.height = 5} 
+```{r fig.width=8, fig.height = 10} 
 #Examining the relationship between day of the week and hourly trends
-hours <- CBS$hour %>% unique() %>% as.vector() %>% rev()
+hours <- CBS$hour %>% unique() %>% as.vector()
 
 #Usage looks identical for casual & registered --> therefore only showing count_rentals
 CBS[(CBS$day %in% c("Sunday", "Saturday")),] %>% 
@@ -708,27 +707,26 @@ CBS[(CBS$day %in% c("Sunday", "Saturday")),] %>%
        title = "Weekend Hourly Trend of Rentals",
        subtitle = "Smooth Curve of Rental with Peak Usage Around Midday")+
   scale_fill_viridis_d(option = "magma") +
-  coord_flip() +
   theme(axis.text.x = element_text(angle = 25,
-                                   size = 7),
+                                   size = 9),
         axis.ticks = element_line(color = "black")) +
-  facet_wrap(~day, ncol = 5, nrow  = 1)  
-```
+  facet_wrap(~day, ncol = 1, nrow  = 5)
 
-```{r fig.width=8, fig.height = 5} 
+#Weekday Trend Over Hours - Casual
 CBS[!(CBS$day %in% c("Sunday", "Saturday")),] %>% 
-  ggplot(mapping = aes(x = factor(hour, levels = hours), count_rentals, fill = year)) +
+  ggplot(mapping = aes(x = factor(hour, levels = hours), casual, fill = year)) +
   geom_boxplot(alpha = 0.7, width = .8) +
   labs(x = "", y = "Total Rentals",
-       title = "Weekday Hourly Trend of Rentals",
-       subtitle = "Peak Usage Before & After Work 9-5 Schedule")+
+       title = "Weekday Hourly Trend of Casual Rentals")+
   scale_fill_viridis_d(option = "magma") +
-  coord_flip() +
   theme(axis.text.x = element_text(angle = 25,
-                                   size = 7),
+                                   size = 9),
         axis.ticks = element_line(color = "black")) +
-  facet_wrap(~day, ncol = 5, nrow  = 1)
+  facet_wrap(~day, ncol = 1, nrow  = 5)
+```
 
+```{r fig.width=8, fig.height = 10} 
+#Weekday Trend Over Hours - Registered
 CBS[!(CBS$day %in% c("Sunday", "Saturday")),] %>% 
   ggplot(mapping = aes(x = factor(hour, levels = hours), registered, fill = year)) +
   geom_boxplot(alpha = 0.7, width = .8) +
@@ -736,26 +734,36 @@ CBS[!(CBS$day %in% c("Sunday", "Saturday")),] %>%
        title = "Weekday Hourly Trend of Registered Rentals",
        subtitle = "Peak Usage Before & After Work 9-5 Schedule")+
   scale_fill_viridis_d(option = "magma") +
-  coord_flip() +
   theme(axis.text.x = element_text(angle = 25,
-                                   size = 7),
+                                   size = 9),
         axis.ticks = element_line(color = "black")) +
-  facet_wrap(~day, ncol = 5, nrow  = 1)
+  facet_wrap(~day, ncol = 1, nrow  = 5)
+
+#Weekday Trend Over Hours - Total
+CBS[!(CBS$day %in% c("Sunday", "Saturday")),] %>% 
+  ggplot(mapping = aes(x = factor(hour, levels = hours), count_rentals, fill = year)) +
+  geom_boxplot(alpha = 0.7, width = .8) +
+  labs(x = "", y = "Total Rentals",
+       title = "Weekday Hourly Trend of Total Rentals",
+       subtitle = "Peak Usage Before & After Work 9-5 Schedule")+
+  scale_fill_viridis_d(option = "magma") +
+  theme(axis.text.x = element_text(angle = 25,
+                                   size = 9),
+        axis.ticks = element_line(color = "black")) +
+  facet_wrap(~day, ncol = 1, nrow  = 5)
 ```
 
-## Feature Engineering    
+## Feature Reduction   
 
-#### Target Variables   
+`date` - Our team reasoned that the creation of **731** distinct variables representing `date` could have severe impacts, mainly high VIF and overfitting, on model performance when regressing our target variable. No unique information is provided by `date`. All other information is already found in our `year` and `month`, and `day` variable.  
 
-#### Predictor Variables  
+To avoid these drawbacks, we have decided to disregard the `date` variable from the model building process.   
 
-##### `date`  
+`temp` - As noted before, multicollinearity would be present in our model if we including variables `temp` and `atemp`. Therefore, we have decided to disregard `temp` from the modeling process, as we believe that `atemp` will more accurately prove useful in accurately predicting the target variable.  
 
-Our team reasoned that the creation of **731** distinct variables representing `date` could have severe impacts on model performance when regressing our target variable. The only unique piece of information provided by `date` is the day of the month. All other information is already found in our `year` and `month`, and `day` variable.  
+## Feature Engineering
 
-Because of this, we have decided to drop the `date` variable from futher analysis. 
-
-##### Dummy Variable Creation 
+Dummy Variable Creation - Categorical variables, such as `season`, `year`, `month`, `day`, `hour`, and `weather`, are better suited for dummy variable creation for use in our multiple linear regression model. This encoding ensures these factor/categorical variables are appropriately interpreted by our model. For each of these variables, one of the categories will not appear in the model summary output, due to it being considered the baseline. 
 
 ```{r}
 #Create Dummy Coding here for these variables 
@@ -769,13 +777,15 @@ CBS <- dummy_cols(CBS, select_columns =
 
 #Coerce Logical Types to Numeric
 CBS <- CBS %>% mutate_if(is.logical, as.numeric)
-CBS <- CBS %>% dplyr::select(-c("instant", "casual", "registered"))
+CBS <- CBS %>% dplyr::select(-c("casual", "registered"))
 CBS <- CBS %>% dplyr::select(-c(date, temp))
 ```
 
-# Model Building 
+# Model Building  
 
-## Data Partition   
+## Data Partition    
+
+With our goals centered on finding the most significant predictors with respect to determining the total number of hour-by-hour rentals, we decided to partition our data 80% towards training the model and 20% for testing model performance. 
 
 ```{r}
 library(leaps) #Best Subset Selection
@@ -797,7 +807,7 @@ full_model <- lm(count_rentals ~ ., data = train)
 summary(full_model)
 ```
 
-### Regression Assumptions  
+### Model Assumptions  
 
 ```{r, fig.width=6, fig.height=6}
 par(mfrow = c(2,2)) 
@@ -921,13 +931,11 @@ test$cube_root_total <- (test$count_rentals)^(1/3)
 
 ```{r, fig.width=7, fig.height=7}
 #Could remove workingday & season_Summer from train df
-train <- train %>% dplyr::select(-c(workingday, season_Summer))
+train <- train %>% dplyr::select(-c( workingday, season_Summer))
 ```
 
-
-#### Model - Assumptions Addressed
-
 ```{r, fig.width=7, fig.height=7}
+# Model - Assumptions Addressed
 full_model_improved <- lm(cube_root_total ~ . - count_rentals,
                           data = train)
 par(mfrow = c(2,2))
@@ -938,8 +946,11 @@ colnames(df_vif) = "VIF"
 df_vif %>% arrange(desc(VIF))
 ```
 
+## Stepwise Selection (Reduced Model)   
 
-### Reduced Models (Feature Selection) 
+### Model Assumptions  
+
+### Test Set Evaluation  
 
 ```{r fig.height=5, fig.width=8.5}
 library(leaps)
@@ -1048,6 +1059,8 @@ model_metrics_df = metrics(y_pred = pred_values_total_rentals$fit,
 model_metrics_df
 ```
 
+
+
 ```{r fig.height=5, fig.width=5}
 #Total Rentals Predicts vs. Observed Values
 ggplot(pred_values_total_rentals, aes(x=fit, y=obs)) +
@@ -1079,16 +1092,38 @@ library(coefplot)
 coefplot::coefplot(stepwise_model)
 ```
 
-# Conclusions and Recommendations
+# Conclusions and Recommendations 
+
+Capital Bike Share Needs to Capitalize on the trend of registered riders using it as a primary mode of transportation and set of locations at major areas of work and near residential areas where people can get easy access to these bikes. This will increase the number of registered riders. 
 
 \pagebreak
 
 # Appendix 
 
-```{r,echo=FALSE, include = TRUE, out.width='.49\\linewidth',fig.show='hold',fig.align='center', fig.cap="Cube-root transformation applied to target, `count_rentals` to approximate normality"}
-#fig.1
-#fig.2
+```{r include = TRUE, echo = TRUE, eval = FALSE}
+#Visualize for Missing Data
+vis_miss(CBS, sort_miss = T) + 
+  labs(y = "NA Values") +
+  theme(axis.text.x.bottom = element_text(angle = 60, vjust = 0)) +
+  coord_flip()
 ```
+
+```{r echo=FALSE, fig.align='center', fig.cap="No missing values in dataset", fig.show='hold', fig.width=7, include=TRUE}
+fig.1
+```
+
+```{r include = TRUE, echo = TRUE, eval = FALSE}
+#Visualize for Missing Data
+vis_dat(CBS) + theme(axis.title.y = element_blank(),
+                     axis.text.x.bottom = element_blank()) +
+  labs(title = "Data Types of Capital Bike Share Dataset") +
+  scale_fill_brewer(palette = 2)
+```
+
+```{r echo=FALSE, fig.align='center', fig.cap="Pre-Assigned Variable Data Types", fig.show='hold', fig.width=7, include=TRUE}
+fig.2
+```
+
 
 
 
