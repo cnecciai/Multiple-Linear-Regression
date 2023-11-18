@@ -18,9 +18,9 @@ linkcolor: blue
 ```{r setup, echo=FALSE, include=FALSE, message=FALSE, warning=FALSE}
 #Default Setup
 knitr::opts_chunk$set(include = FALSE, echo = FALSE, tidy=TRUE, cache=FALSE, message=FALSE, warning=FALSE,tidy.opts=list(width.cutoff=55, keep.blank.line=FALSE),fig.align='center', fig.width=3.50, fig.height=2.75, dpi = 300)
-```  
+```
 
-\pagebreak   
+\pagebreak
 
 ```{r}
 library(visdat)
@@ -28,46 +28,40 @@ library(car)
 library(corrplot)
 library(e1071)
 library(tidyverse)
-
+library(ggpubr)
+library(DT)
 #Set default theme for ggplot
-theme_set(theme_light()) 
+theme_set(theme_minimal()) 
 ```
 
+# Executive Summary
 
+|       Capital Bike Share provides a network of multi-purpose bicycles to the denizens of the Washington D.C. Metropolitan region. We were approached by Capital Bike Share to delve into their hour-by-hour observations across 2011 and 2012. Preliminary insights into the dataset revealed that demand usage for these bicycles can be affected by a variety of influential factors. We determined two major categories of influence: time and weather.
 
-# Executive Summary   
-
-|       Capital Bike Share provides a network of multi-purpose bicycles to the denizens of the Washington D.C. Metropolitan region. We were approached by Capital Bike Share to delve into their hour-by-hour observations across the 2011 and 2012 time frame. Preliminary insights into the dataset provided to us revealed that demand usage for these bicycles can be affected by a variety of noteworthy, influential factors. These can be broken down into two major categories of influence: time and weather.   
-
-|        We examined multi-variable trends and deliberated on patterns which revealed key insights. Based on our visualizations, we concluded rental demand as being dominated by registered riders using bicycles as a primary mode of transportation to and from work. Furthermore, our resulting predictive model confirmed our preliminary analysis, as it was ultimately determined that time-based variables were the most significant factors in accurately predicting bicycle rentals. 
-
-|       
+|        We examined multi-variable trends and deliberated on insightful patterns. Based on our findings, we concluded rental demand as being mainly determined by registered riders using bicycles as a primary mode of transportation to and from work. Furthermore, our resulting predictive model confirmed our preliminary analysis, as it was ultimately determined that time-based variables were the most significant factors in accurately predicting bicycle rentals.
 
 # Problem Statement and Approach
 
-Our primary tasks in this analysis were twofold:   
+Our primary tasks in this analysis were twofold:
 
-- Identifying the most influential variables relative to their predictive power in determining the total hour-by-hour bicycle rentals and,  
-- Fitting a multiple regression model predicting the demand for the total hour-by-hour bicycle rentals.
+-   Identifying the most influential variables relative to their predictive power in determining the total hour-by-hour bicycle rentals
+-   Fitting a multiple regression model predicting total hour-by-hour bicycle rental count
 
-|       Beginning with an inspection of our dataset and subsequent exploratory data analysis, we aimed to systematically determine those variables which we believed have significant relation to the target variable. Our dataset consisted of 17,379 observations across 17 features. After a well-documented, granular analysis, including univariate and multivariate visualizations, we utilized our findings in a comprehensive modeling process. This process culminated in a multiple linear regression model that not only accurately predicted rental demand, but simultaneously provided an assumption-backed evaluation confirming our models' reliability.
-
-|       Below we have provided the methodology of our approach, beginning with an inspection and analysis of our data, followed by our modeling selection strategy and diagnostic testing to ensure model generalizability. Finally, we conclude with our recommendations and takeaways.    
-
+|       Beginning with an exploratory data analysis, we aimed to determine variables which we believed have significant relation to the target variable. After a well-documented, granular analysis of 17 features over 17,379 observations, we utilized our findings for comprehensive modeling. This process culminated in a multiple linear regression model that not only accurately predicted rental demand, but simultaneously provided an assumption-backed evaluation confirming our models' reliability and generalizability. We then end with our conclusions and recommendations.
 
 # Methodology
 
-## Data Preprocessing     
+## Data Preprocessing
 
-|       We began our approach with an overview of the integrity of our dataset's structure. We discovered no missing values nor duplicated observations. Neither imputation nor duplicate observation removal was needed. We did, however, note variables which had data types that were non-representative of the underlying values
+|       We began our approach with an overview of the integrity of our dataset's structure. We discovered no missing values nor duplicated observations. We did, however, note variables which had data types that were non-representative of their underlying values.
 
-Variables `dteday`, `season`, `yr`, `mnth`, `hr`, `holiday`, `weekday`, `workingday`, and `weathersit` were all considered to have data types and values which were unclear and in need of re-evaluation. As such, we decided to apply new data types to these variables, effectively categorizing them and applying appropriate labels. The `dteday`, `yr`, `mnth`, `hr`, `weekday`, `weathersit`, and `cnt` were renamed for additional clarity.
+|       Variables `dteday`, `season`, `yr`, `mnth`, `hr`, `holiday`, `weekday`, `workingday`, and `weathersit` were all considered to have data types and values which were non-representative. As such, we applied more representative data types, effectively categorizing them and applying appropriate labels. The `dteday`, `yr`, `mnth`, `hr`, `weekday`, `weathersit`, and `cnt` were renamed for additional clarity.
 
 ```{r}
 #Read In Dataset & Initial Look
 CBS <- read.csv("Capital Bike Sharing data by hour.csv")
-CBS %>% glimpse()
-``` 
+#CBS %>% glimpse()
+```
 
 ```{r}
 #Rename Variables for descriptive clarity
@@ -79,7 +73,7 @@ CBS <- CBS %>% rename(date = dteday,
                       weather = weathersit,
                       count_rentals = cnt)
 CBS <- CBS %>% dplyr::select(-instant)
-CBS %>% glimpse()
+#CBS %>% glimpse()
 ```
 
 ```{r}
@@ -98,13 +92,11 @@ if ((nrow(duplicates)) == 0) {
   print("No duplicates detected") }
 ```
 
-```{r fig.height=4, fig.width=6}
+```{r}
 fig.2 <- vis_dat(CBS) + theme(axis.title.y = element_blank(),
                      axis.text.x.bottom = element_blank()) +
-  labs(title = "Data Types of Capital Bike Share Dataset") +
   scale_fill_brewer(palette = 2)
 ```
-
 
 ```{r}
 #Reevaluate data types
@@ -142,12 +134,10 @@ for (i in 1:nrow(CBS)) {
 CBS$hour <- factor(newHours)
 ```
 
-
 ```{r fig.height=4, fig.width=6}
 #Visualize final data types in dataset
-vis_dat(CBS) + theme(axis.title.y = element_blank(),
+datatype_plot <- vis_dat(CBS) + theme(axis.title.y = element_blank(),
                      axis.text.x.bottom = element_blank()) +
-  labs(title = "Data Types of Capital Bike Share Dataset") +
   scale_fill_brewer(palette = 2)
 ```
 
@@ -157,13 +147,11 @@ print(paste("Number of observations/rows: ", dim(CBS)[1]))
 print(paste("Number of columns/variables: ", dim(CBS)[2]))
 ```
 
-## Exploratory Data Analysis    
+## Exploratory Data Analysis (EDA)
 
-|       To better understand our variables' distributions, values, and relationships with each other and our target variable, we conducted a thorough exploratory data analysis. Our primary focus is to examine each of our variables' summary statistics and distributions while investigating the underlying values for patterns, inconsistencies, and anomalies which may affect our analysis. 
+|       To better understand our variables, we examined each of our variables' summary statistics and distributions while investigating for patterns, inconsistencies, and anomalies which may affect our analysis.
 
-### Univariate Analysis 
-
-#### Target Variable   
+### Target Variable
 
 ```{r, warning = FALSE}
 #Summary Statistics for Continuous Variables
@@ -182,22 +170,23 @@ numSummary = function(var, rowname) {
 }
 ```
 
-##### `count_rentals`  
+#### `count_rentals`
 
-We are focused primarily on finding relationships significant to and in predicting the target variable, `count_rentals`(previously `cnt`). Each row/observation in our dataset is taken on an hourly basis. Our target is that corresponding hourly count of rentals that have occurred. Our histogram displaying the distribution overlayed with a density line shows us graphically that `count_rentals` is moderately right skewed. There is serious variability in the hour-by-hour rentals, with a minimum of a single rental to a maximum of nearly a thousand rentals per hour, but with 50% of our observations being less than **142** bicycle rentals per hour, marked by the red dashed line. 
+The variable we aim predict is `count_rentals`(`cnt`). Each observation is taken on an hourly basis. Our target variable's distribution shows us that `count_rentals` is highly right skewed. There is serious variability in the hour-by-hour rentals, with a minimum of a single rental to a maximum of nearly a thousand rentals per hour, but with 50% of our observations being less than the median of **142** bicycle rentals per hour, marked by the red dashed line.
 
 ```{r}
 #Retrieve summary statistics for count_rentals
 results = numSummary(CBS$count_rentals, "count_rentals")
-print(results)
+#print(results)
 
 #count_rentals distribution
-CBS %>% ggplot(aes(count_rentals)) +
+target_plot <- CBS %>% ggplot(aes(count_rentals)) +
   geom_histogram(aes(y = after_stat(density)),fill = "darkblue", color = "black", alpha = 0.6) +
   geom_density(adjust = 2) +
   labs(x = "Total Number of Rentals", y = "Density",
        title = "Distribution of `count_rentals`",
-       subtitle = paste("Skewness Value: ", results$Skew)) +
+       subtitle = paste("Skewness Value: ", results$Skew),
+       caption = "Median Marked By Dashed Red Line") +
   theme(
     plot.title = element_text(hjust = 0, face = "bold", size = 12),
     axis.title.x = element_text(size = 8, color = "black"),
@@ -208,51 +197,43 @@ CBS %>% ggplot(aes(count_rentals)) +
   geom_vline(aes(xintercept = results$Median), color = "red", linetype = "dashed")
 ```
 
-#### Categorical Variables  
 
-##### `date`
-
-The `date` distribution revealed that not every unique value of date has an expected equivalent number of hourly interval measurements. The majority of each of the **731** distinct date values contained twenty-four or twenty-three of the expected hourly observations. However, fourteen of the dates contained fewer, which in turn equates to hours worth of missing possible observations.  Capital Bike Shares' hour-to-hour observational system has hourly gaps, which would otherwise provide useful descriptive and predictive analytics. 
 
 ```{r}
 # Distinct Values per Variable
-print(paste("Number of Distinct Dates: ", n_distinct(CBS$date)))
+#print(paste("Number of Distinct Dates:", n_distinct(CBS$date)))
+
 
 #Observe Low Frequency of some particular dates
 low_count_obs <- CBS %>% group_by(date) %>%
   summarise(count_hour_obs = n()) %>%
   filter(count_hour_obs < 23)
 
-print(low_count_obs)
+#Expected - Actual
+lost_hours = (14*24) - sum(low_count_obs$count_hour_obs)
+#print(paste("Hours Lost from Low Count Dates:", lost_hours))
+#print(low_count_obs)
 ```
 
-```{r fig.height=4, fig.width=6}
+```{r fig.height=4, fig.width=7}
 #Display those date in distribution with fewer counts of hourly observations
-CBS %>% group_by(date) %>% 
+date_plot <- CBS %>% group_by(date) %>% 
   mutate(dateCount = n()) %>% 
   filter(dateCount < 23) %>%
   ggplot(mapping = aes(x = fct_reorder((as.character(date)), desc(dateCount)))) +
   geom_bar(color = "black", mapping = aes(fill = fct_reorder(as.factor(date), desc(dateCount)))) +
-  geom_text(stat = "count", aes(label = after_stat(count)), nudge_y = 1, size = 3) +
+  geom_text(stat = "count", aes(label = after_stat(count)), nudge_y = 2, size = 4.4) +
   scale_fill_viridis_d("Date", option = "magma") +
   guides(fill = "none") +
   labs(x = "Date",
-       caption = "Dates on the right side of the chart, such as 2012-10-29 and 2011-01-27, correspond to very few observations in the entire data set.",
        y = "Number of Observations",
        title = "Dates with Missing Hourly Observations") +
-  theme(axis.text.x = element_text(angle = 35),
-        plot.caption = element_text(size = 6))
+  theme(axis.text.x = element_text(angle = 90),
+        plot.caption = element_text(size = 8))
 ```
- 
-##### `season`   
-
-As a whole, the `season` distribution was evenly distributed with each season containing approximately within +/- 1% of a quarter of the observations as would be expected. 
 
 ```{r fig.width=4.2}
-print(paste("Percentages of seasons:"))
-(prop.table(table(CBS$season)) * 100) %>% round(2)
-
-CBS %>% 
+season_plot <- CBS %>% 
   group_by(season)%>%
   mutate(countSeason = n()) %>%
   ggplot(mapping = aes(x = fct_reorder((season), desc(countSeason)))) +
@@ -272,20 +253,13 @@ CBS %>%
   coord_flip()
 ```
 
-##### `year`    
-
-The distribution of observations for the two recorded years, 2011 and 2012, were nearly exact at 49.74% and 50.26%, respectively.
-
 ```{r fig.width=4}
-print(paste("Percentages of Observations for years:"))
-(prop.table(table(CBS$year)) * 100) %>% round(2)
-
-CBS %>% 
+year_plot <- CBS %>% 
   ggplot(mapping = aes(x = year, fill = year)) +
   geom_bar(color = "black") +
-  geom_text(stat = "count", aes(label = after_stat(count)), nudge_y = 450, size = 3) +
+  geom_text(stat = "count", aes(label = after_stat(count)), nudge_y = 500, size = 3) +
   scale_fill_viridis_d("Year", option = "magma") +
-  labs(title = "Distribution of Observations by `year`",
+  labs(title = "Distribution of `year`",
        x = "",
        y = "") +
   theme(
@@ -297,15 +271,8 @@ CBS %>%
   coord_flip()
 ```
 
-##### `month`    
-
-Across all monthly grouped observations, the distribution of the `month` variable was approximately uniform. However, the month of February appeared unique with it having the fewest number of observations of 1341. Otherwise, this distribution was mostly even.
-
 ```{r fig.width=4.7}
-print(paste("Percentages of months:"))
-(prop.table(table(CBS$month)) * 100) %>% round(2)
-
-CBS %>% 
+month_plot <- CBS %>% 
   group_by(month) %>%
   mutate(countMonth = n()) %>%
   ggplot(mapping = aes(x = fct_reorder((month), desc(countMonth)))) +
@@ -323,29 +290,21 @@ CBS %>%
     ) +
   guides(fill = "none") +
   coord_flip()
-``` 
+```
 
-
-##### `hour`    
-
-When observing a sorted hourly distribution from 12:00AM to 11:00PM, we found that the count of each distinct hour were nearly equal. However, a trend in the number of observations can be seen with a decrease beginning at approximately 1:00AM and continuing until 3:00AM when it then increases through 6:00AM. 
-
-```{r fig.width=6}
-#hour
-print(paste("Percentages of Hourly Observations:"))
-(prop.table(table(CBS$hour)) * 100) %>% round(2)
-
+```{r fig.width=8}
 hours <- CBS$hour %>% unique() %>% as.vector()
 hourDF <- CBS %>% 
   group_by(hour) %>% 
   transmute(hourCount = n()) %>% 
   mutate(check = ifelse(hourCount <= 725, TRUE, FALSE))
 
-hourDF %>% 
+hour_plot <- hourDF %>% 
   ggplot(mapping = aes(x = factor(hour, levels = hours))) +
   geom_bar(color = "black", aes(fill = check), alpha = .4) +
   geom_text(stat = "count", aes(label = after_stat(count)), nudge_y = 40, size = 3) +
   labs(title = "Distribution of `hour`",
+       subtitle = "Slight Drop Trend in Count of Observations During Morning Hours",
        x = "",
        y = "") +
   scale_fill_viridis_d()+
@@ -354,26 +313,19 @@ hourDF %>%
     plot.caption = element_text(size = 8),
     axis.title.x = element_text(size = 8, color = "black"),
     axis.title.y = element_text(size = 8, color = "black"),
-    axis.text.x = element_text(angle = 85, vjust = 0.8),
+    axis.text.x = element_text(angle = 85, vjust = 0.6),
     axis.text.y = element_text(size = 8, color = "black"),
     ) +
   guides(fill = "none")
 ```
 
-##### `day`     
-
-The distribution across the `day` variable were all nearly approximate for each of the seven days of the week.
-
-```{r fig.width=4}
-print(paste("Percentages of days:"))
-(prop.table(table(CBS$day)) * 100) %>% round(2)
-
-CBS %>% 
+```{r fig.width=4.5}
+day_plot <- CBS %>% 
   group_by(day) %>%
   mutate(countDay = n()) %>%
   ggplot(mapping = aes(x = fct_reorder((day), desc(countDay)))) +
   geom_bar(color = "black", mapping = aes(fill = fct_reorder(as.factor(day), desc(countDay)))) +
-  geom_text(stat = "count", aes(label = after_stat(count)), nudge_y = 120, size = 3) +
+  geom_text(stat = "count", aes(label = after_stat(count)), nudge_y = 140, size = 3) +
   scale_fill_viridis_d("Month", option = "magma") +
   labs(title = "Distribution of `day`",
        x = "",
@@ -388,16 +340,9 @@ CBS %>%
   coord_flip()
 ```
 
-##### `weather`    
-
-A vast majority of our `weather` observations were of Type 1, meaning that a majority of our observations were recorded in favorable weather conditions. The second largest proportion of observations were of Type 2 which included cloudy and misty weather. The third largest were of Type 3 which indicates rain/snow and thunderstorm conditions. The smallest proportion were those recorded for Type 4. These observations were of extreme weather conditions, including heavy rain/snow, severe thunderstorms/etc.
-
 ```{r fig.width=5}
 #weather
-print(paste("Percentages of weather Types:"))
-(prop.table(table(CBS$weather)) * 100) %>% round(2)
-
-CBS %>% 
+weather_plot <- CBS %>% 
   group_by(weather) %>%
   mutate(countWeather = n()) %>%
   ggplot(mapping = aes(x = fct_reorder((weather), desc(countWeather)))) +
@@ -405,6 +350,7 @@ CBS %>%
   geom_text(stat = "count", aes(label = after_stat(count)), nudge_y = 550, size = 3) +
   scale_fill_viridis_d("Month", option = "magma") +
   labs(title = "Distribution of `weather`",
+       subtitle = "Few Instances of `Type 4` Weather/Inclement Weather Conditions",
        x = "",
        y = "Observations") +
   theme(
@@ -418,21 +364,26 @@ CBS %>%
   coord_flip()
 ```
 
-#### Continuous Variables  
+### Predictor Variables
 
+|       Each categorical, continuous, and Boolean features' summary statistics and distributions were thoroughly investigated. Categorical features we considered are as follows:  `season`, `year`, `month`, `day`, `hour`, `date`, and `weather`. Continuous features are `temp`, `atemp`, `hum`, and `windspeed`. Boolean features were `holiday` and `workingday`.
 
-##### `temp`     
+The distributions and corresponding summary statistics for the categorical, continuous, and Boolean variables can be observed in Figure X, Y, and Z respectively.
 
-The distribution of `temp` has been normalized to represent the actual temperature in Celsius. 
+#### Noteworthy Observations
+
+##### `date`
+
+The `date` distribution revealed that not every unique value of date has an expected equivalent number of hourly interval measurements. The majority of each of the **731** distinct date values contained twenty-four or twenty-three of the expected hourly observations. However, fourteen of the dates contained fewer, which in turn equated to **103** hours worth of missing possible observations. Capital Bike Shares' hour-to-hour observational system has hourly gaps, which would otherwise provide useful statistics. 
 
 ```{r}
 #Retrieve summary statistics for temp
 tempSummary = numSummary(CBS$temp, "temp")
 numVars = bind_rows(results, tempSummary)
-tempSummary
+#tempSummary
 
 #temp Distribution
-CBS %>% ggplot(aes(temp)) +
+temp_plot <- CBS %>% ggplot(aes(temp)) +
   geom_histogram(aes(y = after_stat(density)), bins = 20, fill = "blue", color = "black", alpha = 0.6) +
   geom_density(adjust = 3) +
   labs(x = "Normalized Celcius",
@@ -446,19 +397,14 @@ CBS %>% ggplot(aes(temp)) +
     axis.text.y = element_text(size = 8, color = "black"))
 ```
 
-
-##### `atemp`   
-
-The distribution of `atemp` has been normalized and represents the "real-feel" temperature in Celsius.  Being that `atemp` is undoubtedly related to influences from the season and weather, our intuition tells us that `atemp` will be an important factor in determining bicycles rentals.
-
 ```{r}
 #Retrieve summary statistics for atemp
 tempFCSummary = numSummary(CBS$atemp, "atemp")
 numVars = bind_rows(numVars, tempFCSummary)
-tempFCSummary
+#tempFCSummary
 
 #atemp Distribution
-CBS %>% ggplot(aes(atemp)) +
+atemp_plot <- CBS %>% ggplot(aes(atemp)) +
   geom_histogram(aes(y = after_stat(density)), bins = 20, fill = "blue", color = "black", alpha = 0.6) +
   geom_density(adjust = 3) +
   labs(x = "Normalized - Real Feel Celcius",
@@ -470,21 +416,17 @@ CBS %>% ggplot(aes(atemp)) +
     axis.title.y = element_text(size = 8, color = "black"),
     axis.text.x = element_text(size = 8, color = "black"),
     axis.text.y = element_text(size = 8, color = "black"))
-``` 
-
-##### `hum`    
-
-Despite the distribution of `hum` representing humidity being normalized, we see that a majority of the observations contain some degree of humidity. Being that `hum` possibly includes rain, snow, or other precipitation, we might see that it negatively impacts the number of rentals. 
+```
 
 ```{r}
 #Retrieve summary statistics for humidity
 humSummary = numSummary(CBS$hum, "hum")
 numVars = bind_rows(numVars, humSummary)
-humSummary
+#humSummary
 
 #Humidity Distribution
-CBS %>% ggplot(aes(hum)) +
-  geom_histogram(aes(y = after_stat(density)), fill = "blue", color = "black", alpha = 0.5) +
+hum_plot <- CBS %>% ggplot(aes(hum)) +
+  geom_histogram(aes(y = after_stat(density)), fill = "blue", color = "black", alpha = 0.6) +
   geom_density(adjust = 3) +
   labs(x = "Normalized Humidity",
        y = "Density", 
@@ -497,19 +439,15 @@ CBS %>% ggplot(aes(hum)) +
     axis.text.y = element_text(size = 8, color = "black"))
 ```
 
-##### `windspeed`      
-
-We have a uniquely zero-inflated, skewed distribution with the `windspeed` variable. Quite a few of our observations are marked as having zero `windspeed`, with a notable gap between zero and the next marked observation. It may be the case that these readings are of truly zero `windspeed` or that the wind was so negligible within this gap of ranges that they were marked as zero. 
-
 ```{r}
 #Retrieve summary statistics for windspeed
 windSummary = numSummary(CBS$windspeed, "windspeed")
 numVars = bind_rows(numVars, windSummary)
-windSummary
+#windSummary
 
 #Windspeed Distribution
-CBS %>% ggplot(aes(windspeed)) +
-  geom_histogram(aes(y = after_stat(density)), fill = "blue", color = "black", alpha = 0.5) +
+wind_plot <- CBS %>% ggplot(aes(windspeed)) +
+  geom_histogram(aes(y = after_stat(density)), fill = "blue", color = "black", alpha = 0.6) +
   geom_density(adjust = 3) +
   labs(x = "Normalized Windspeed",
        y = "Density", 
@@ -528,20 +466,24 @@ library(DT)
 datatable(numVars, class = 'cell-border stripe')
 ```
 
-#### Boolean(True/False) Variables 
+```{r fig.height=4, fig.width=5}
+cont_plot <- ggarrange(temp_plot, atemp_plot, wind_plot, hum_plot)
+cont_plot
+```
 
-##### `holiday`   
 
-|       Inspection of our `holiday` variable revealed dates which should have been marked as holidays and others which should not have been. We re-labeled these observations based on official [federally recognized holidays](https://www.commerce.gov/hr/employees/leave/holidays).    
+##### `holiday`
 
-|       In comparison to our dataset: 2011-01-01, 2011-12-25, 2012-01-01, and 2012-11-11 were incorrectly mislabeled as *not* being holidays. 2011-12-26, 2012-01-02, and 2012-11-12 were mislabeled as **being** holidays. 2011-04-15 and 2012-04-16, while not being federally recognized holidays, are dates of observance for Emancipation Day in the Washington D.C. Area. Due to the similar holiday-like observance of Emancipation Day in our area of interest, these two dates will be labeled as holidays.   
+Inspection of our `holiday` variable revealed dates which should have been marked as holidays and others which should not have been. We re-labeled these observations based on official [federally recognized holidays](https://www.commerce.gov/hr/employees/leave/holidays).
 
-```{r} 
+|       In comparison to our dataset: 2011-01-01, 2011-12-25, 2012-01-01, and 2012-11-11 were incorrectly mislabeled as *not* being holidays. 2011-12-26, 2012-01-02, and 2012-11-12 were mislabeled as **being** holidays. 2011-04-15 and 2012-04-16 are dates of observance for Emancipation Day in the Washington D.C. Area. Due to the holiday-like observance of Emancipation Day in our area of interest, these two dates will be labeled as holidays.
+
+```{r}
 holidayDates <- CBS[CBS$holiday == TRUE,]
 holidayDates$date %>% unique()
 ```
 
-```{r} 
+```{r}
 #2011 Holiday Dates
 USFed2011 <- c("2011-01-01", "2011-01-17", "2011-02-21","2011-04-15", "2011-05-30", "2011-07-04", "2011-09-05", "2011-10-10", "2011-11-11", "2011-11-24", "2011-12-25")
 incHolidayDates2011 <- CBS[CBS$date %in% USFed2011 & CBS$holiday == FALSE,]$date %>% unique()
@@ -569,7 +511,7 @@ print(paste("Percentages of holiday Observations:"))
 (prop.table(table(CBS$holiday)) * 100) %>% round(2)
 
 #Holiday Distribution
-CBS %>% 
+hol_plot <- CBS %>% 
   ggplot(mapping = aes(x = holiday, fill = holiday)) +
   geom_bar(color = "black") +
   geom_text(stat = "count", aes(label = after_stat(count)), nudge_y = 1000, size = 3) +
@@ -586,16 +528,12 @@ CBS %>%
   coord_flip()
 ```
 
-##### `workingday`   
-
-The distribution of `workingday` shows more observations consisting of days in which people worked than not. This is consistent when considering that no Saturday, Sunday, weekday/end holidays can be working days.  
-
 ```{r}
 print(paste("Percentages of workingday Observations:"))
 (prop.table(table(CBS$workingday)) * 100) %>% round(2)
 
 #Holiday Distribution
-CBS %>% 
+work_plot <- CBS %>% 
   ggplot(mapping = aes(x = workingday, fill = workingday)) +
   geom_bar(color = "black") +
   geom_text(stat = "count", aes(label = after_stat(count)), nudge_y = 1000, size = 3) +
@@ -612,18 +550,23 @@ CBS %>%
   coord_flip()
 ```
 
-## Correlation   
+```{r fig.width=4.2}
+bool_plot <- ggarrange(work_plot, hol_plot,  nrow = 2, ncol = 1)
+bool_plot
+```
 
-|       We decided to investigate the extent to which our variables are linearly related to one another with a visualized correlation matrix~[Figure XX]~. Here we are concerned with those relationships related to that of our target, `count_rentals` and continuous predictor variables. Here we list the most noteworthy findings:  
 
 
-- Being that `temp` and `atemp` both aim to measure normalized Celsius, it is unsurprising that these variables exhibit a near exact linear relationship with one another. We additionally see they both are moderately, positively related to our target variable to the same degree. Naively including both `temp` and `atemp` in our modeling process would result in multicollinearity, in which we have variables competing to explain our target variable with redundant information. This can cause our estimates our model coefficients to become unstable.   
 
-To maintain a robust regression model and avoid multicollinearity, we will choose only one of these variables, `atemp`, to be including in the modeling process.  
+## Correlation
 
-- Our target is to some degree negatively correlated with `hum`, or the humidity. Being that humidity includes potential precipitation such as rain, mist, snow, and others, it is unsurprising we might find that `count_rentals` decreases as `hum` increases.   
+|       We decided to investigate the extent to which our variables are linearly related to one another with a visualized correlation matrix~[Figure XX]~. Here we are concerned with those relationships related to that of our target, `count_rentals` and continuous predictor variables. Here we list the most noteworthy findings:
 
-Overall, we see that each of our continuous predictor variables exhibits straight-line relationship with our target variable. This can be seen by examining the bottom row of Figure XX as indicated by scatter-plots and the red trend line. 
+-   Being that `temp` and `atemp` both aim to measure normalized Celsius, it is unsurprising that these variables exhibit a near exact linear relationship with one another. We additionally see they both are moderately, positively related to our target variable to the same degree. Naively including both `temp` and `atemp` in our modeling process would result in multicollinearity. To maintain a robust regression model and avoid multicollinearity which would cause our coefficients estimates to become unstable, we will choose only one of these variables, `atemp`, to be included in the modeling process.
+
+-   Our target is slightly negatively correlated with humidity. Being that humidity includes potential precipitation such as rain, mist, snow, and others, this relationship is unsurprising.
+
+|       Overall, we see that each of our continuous predictor variables exhibits straight-line relationship with our target variable. This can be seen by examining the bottom row of Figure XX as indicated by scatter-plots and the red trend lines.
 
 ```{r  fig.height=6, fig.width=6}
 #Show relationships between predictors and dvs
@@ -638,23 +581,20 @@ corrplot(cor_matrix, method = "circle",
          number.cex = 1, tl.srt = 50)
 ```
 
-
 ```{r  fig.height=8, fig.width=8}
 library(PerformanceAnalytics)
 corr_df <- pred_CBS %>% select_if(is.numeric)
 chart.Correlation(corr_df)
 ```
 
-## Notable Multivariate Analysis  
+## Notable Multivariate Analysis
 
 ### Temperature and Target Relationship
 
-|       We examined the multi-variable relationship between our temperature related variables, `temp`,`atemp`, and `count_rentals`. Based on our graph, we found that unsurprisingly, the highest numbers of rentals occurred in normalized Celsius values we believe to be indicative of favorable conditions.     
-
-|       This plot also revealed twenty-four high-leverage observations having the exact same `atemp` value of **0.2424**, but `temp` values which were relatively high and variable in relation, ranging from **0.62 to 0.86**. Delving into these observations, we found that all were recorded sequentially, on the exact same day(*2012-08-17*) and under the same weather conditions(*Type 1*). The changing levels of humidity and wind speed lead us to further believe that the real feel temperature should have likewise varied when compared to other observations of similar values in the dataset.   
+|       We examined the multi-variable relationship between our temperature related variables, `temp`, `atemp`, and `count_rentals`. We revealed twenty-four high-leverage observations having the exact same `atemp` value of 0.2424, but `temp` values which were relatively high and variable in relation, ranging from [0.62 to 0.86]. When considering the observational evidence of these twenty-four `temp` and `atemp` observations as being high leverage outliers, we have opted to remove these observations. This removal helps to ensure data integrity as we move towards the modeling process.
 
 ```{r fig.height=4.5, fig.width=5}
-CBS %>% ggplot(aes(atemp, temp)) +
+temp_mult_plot <- CBS %>% ggplot(aes(atemp, temp)) +
   geom_raster(aes(fill = count_rentals)) +
   labs(x = "Real Feel - Celcius",
        y = "Actual Temp - Celcius",
@@ -670,8 +610,6 @@ CBS %>% ggplot(aes(atemp, temp)) +
   geom_text(x = .20, y = .5, label = "Outliers", color = "red")
 ```
 
-When considering the evidence of these twenty-four `temp` and `atemp` multivariate as being observations, we will opt to remove these observations. This removal helps to ensure data integrity as we move towards the modeling process. 
-
 ```{r fig.height=4.5, fig.width=5}
 #Examine multi-variate outliers to find potential reason of high `temp` values
 mvOutliers <- CBS[CBS$atemp < .3 & CBS$temp > .5,]
@@ -684,82 +622,83 @@ CBS <- CBS[subset, ]
 rownames(CBS) <- NULL
 ```
 
+### Work Commute - Hourly Rental Trends
 
-### Hourly Rental Trends 
+|       Our intuition led us to investigate possible patterns of usage based solely on time. What we uncovered, showed that during working days, there is strong indication that bicycles are being utilized as a primary mode of transportation to and from work. Most notably, it is Capital Bike Shares `registered` rental users that are driving this trend. We see that between all rentals and  registered rentals, the trend is nearly identical~[Figure XX, Figure XX]~. Neither `casual` rentals nor rentals occurring on Saturday/Sunday exhibit this trend, adding further evidence to our speculation~[Figure XX, Figure XX]~. The bicycles may be being used as a primary mode of transportation for the majority of `registered` riders during to/from work. Around 8:00AM we note an upward trend of rentals and a decrease around 5:00PM/6:00PM. 
 
-|       Due to the widespread availability of bicycles as a mode of transportation at all hours of the day, our intuition led us to investigate possible patterns of usage based solely on time. What we uncovered, showed that during working days, there is strong indication that bicycles are being utilized as a primary mode of transportation to and from work. Most notably, it is Capital Bike Shares `registered` rental users that are driving this trend. We see that between all rentals and only registered, the trend is nearly identical~[Figure XX, Figure XX]~. Neither `casual` rentals nor rentals occurring on Saturday/Sunday rentals exhibit this trend of bicycle usage, adding further evidence to our speculation~[Figure XX, Figure XX]~. 
-
-|       It may be the case that Capital Bike Share bicycles are used as a primary mode of transportation for the majority of `registered` riders during working hours. Before 9:00AM, we note an upward trend of rentals followed by a stark decrease thereafter. We interpret this as individuals arriving at work followed by a sharp increase of usage around 4:00PM/5:00PM when people typically leave work and commute home. 
-
-```{r fig.width=8, fig.height = 10} 
+```{r fig.width=7, fig.height = 4}
 #Examining the relationship between day of the week and hourly trends
 hours <- CBS$hour %>% unique() %>% as.vector()
 
 #Usage looks identical for casual & registered --> therefore only showing count_rentals
-CBS[(CBS$day %in% c("Sunday", "Saturday")),] %>% 
+ss_plot <- CBS[(CBS$day %in% c("Sunday", "Saturday")),] %>% 
   ggplot(mapping = aes(x = factor(hour, levels = hours), count_rentals, fill = year)) +
   geom_boxplot(alpha = 0.7, width = .8) +
   labs(x = "", y = "Total Rentals",
-       title = "Weekend Hourly Trend of Rentals",
-       subtitle = "Smooth Curve of Rental with Peak Usage Around Midday")+
+       title = "Weekend Hourly Trend of Rentals")+
   scale_fill_viridis_d(option = "magma") +
-  theme(axis.text.x = element_text(angle = 25,
-                                   size = 9),
-        axis.ticks = element_line(color = "black")) +
-  facet_wrap(~day, ncol = 1, nrow  = 5)
-
-#Weekday Trend Over Hours - Casual
-CBS[!(CBS$day %in% c("Sunday", "Saturday")),] %>% 
-  ggplot(mapping = aes(x = factor(hour, levels = hours), casual, fill = year)) +
-  geom_boxplot(alpha = 0.7, width = .8) +
-  labs(x = "", y = "Total Rentals",
-       title = "Weekday Hourly Trend of Casual Rentals")+
-  scale_fill_viridis_d(option = "magma") +
-  theme(axis.text.x = element_text(angle = 25,
-                                   size = 9),
+  theme(axis.text.x = element_text(angle = 90,
+                                   size = 9,
+                                   vjust = .7),
         axis.ticks = element_line(color = "black")) +
   facet_wrap(~day, ncol = 1, nrow  = 5)
 ```
 
-```{r fig.width=8, fig.height = 10} 
+
+```{r fig.width=7, fig.height = 8}
+#Weekday Trend Over Hours - Casual
+wk_cas <- CBS[!(CBS$day %in% c("Sunday", "Saturday")),] %>% 
+  ggplot(mapping = aes(x = factor(hour, levels = hours), casual, fill = year)) +
+  geom_boxplot(alpha = 0.7, width = .8) +
+  labs(x = "", y = "Casual Rentals",
+       title = "Weekday Hourly Trend of Casual Rentals")+
+  scale_fill_viridis_d(option = "magma") +
+  theme(axis.text.x = element_text(angle = 90,
+                                   size = 9,
+                                   vjust = .7),
+        axis.ticks = element_line(color = "black")) +
+  facet_wrap(~day, ncol = 1, nrow  = 5)
+```
+
+```{r fig.width=7, fig.height = 10}
 #Weekday Trend Over Hours - Registered
-CBS[!(CBS$day %in% c("Sunday", "Saturday")),] %>% 
+reg_plot <- CBS[!(CBS$day %in% c("Sunday", "Saturday")),] %>% 
   ggplot(mapping = aes(x = factor(hour, levels = hours), registered, fill = year)) +
   geom_boxplot(alpha = 0.7, width = .8) +
-  labs(x = "", y = "Total Rentals",
+  labs(x = "", y = "Registered Rentals",
        title = "Weekday Hourly Trend of Registered Rentals",
        subtitle = "Peak Usage Before & After Work 9-5 Schedule")+
   scale_fill_viridis_d(option = "magma") +
-  theme(axis.text.x = element_text(angle = 25,
-                                   size = 9),
+  theme(axis.text.x = element_text(angle = 90,
+                                   size = 9,
+                                   vjust = .7),
         axis.ticks = element_line(color = "black")) +
   facet_wrap(~day, ncol = 1, nrow  = 5)
 
 #Weekday Trend Over Hours - Total
-CBS[!(CBS$day %in% c("Sunday", "Saturday")),] %>% 
+tot_plot <- CBS[!(CBS$day %in% c("Sunday", "Saturday")),] %>% 
   ggplot(mapping = aes(x = factor(hour, levels = hours), count_rentals, fill = year)) +
   geom_boxplot(alpha = 0.7, width = .8) +
   labs(x = "", y = "Total Rentals",
        title = "Weekday Hourly Trend of Total Rentals",
        subtitle = "Peak Usage Before & After Work 9-5 Schedule")+
   scale_fill_viridis_d(option = "magma") +
-  theme(axis.text.x = element_text(angle = 25,
-                                   size = 9),
+  theme(axis.text.x = element_text(angle = 90,
+                                   size = 9,
+                                   vjust = .7),
         axis.ticks = element_line(color = "black")) +
   facet_wrap(~day, ncol = 1, nrow  = 5)
 ```
 
-## Feature Reduction   
+## Feature Reduction
 
-`date` - Our team reasoned that the creation of **731** distinct variables representing `date` could have severe impacts (particularly high VIF and overfitting) on model performance when regressing our target variable. No unique information is provided by `date`. All other information is already found in our `year` and `month`, and `day` variable.  
+`date` - Our team reasoned that the creation of **731** distinct variables representing `date` could have severe impacts (high VIF and overfitting) on model performance. No unique information is provided by `date` that is not already found in our `year` and `month`, and `day` variable. To avoid these drawbacks, we have decided to disregard the `date` variable from the modeling process.  
 
-To avoid these drawbacks, we have decided to disregard the `date` variable from the model building process. Additionally, being that `instant` is merely an identifier for the observations, it will also be disregarded during the modeling process.  
-
-Lastly, the inclusion of the `casual` and `registered` problem would make our prediction analysis arbitrary given that our target variable, `count_rentals` is the direct sum of these two. For this reason, these two variables will likewise be disregarded from our modeling. 
+|       Additionally, being that `instant` is merely an identifier for the observations, it will also be disregarded during the modeling process. Lastly, being that `count_rentals` is the exact sum of `casual` and `registered`, inclusion of these two would make our prediction analysis arbitrary. We likewise disregarded these from our modeling.
 
 ## Feature Engineering
 
-Dummy Variable Creation - Categorical variables, such as `season`, `year`, `month`, `day`, `hour`, and `weather`, are better suited for dummy variable creation for use in our multiple linear regression model. This encoding ensures these factor/categorical variables are appropriately interpreted by our model. For each of these variables, one of the categories will not appear in the model summary output, due to it being considered the baseline. 
+Dummy Variable Creation - Categorical variables, such as `season`, `year`, `month`, `day`, `hour`, and `weather`, are better suited for dummy variable creation for use in our multiple linear regression model. This encoding ensures these factor/categorical variables are appropriately interpreted by our model.
 
 ```{r}
 #Create Dummy Coding here for these variables 
@@ -777,9 +716,9 @@ CBS <- CBS %>% dplyr::select(-c("casual", "registered"))
 CBS <- CBS %>% dplyr::select(-c(date, temp))
 ```
 
-# Model Building  
+# Model Building
 
-## Data Partition    
+## Data Partition
 
 |       With our goals centered on finding the most significant predictors with respect to determining the total number of hour-by-hour rentals, we decided to partition our data 80% towards training the model and 20% for testing model performance. Allowing a significant majority of our overall dataset to go towards the model fitting process enables us to get more precise, stable coefficient estimates.
 
@@ -796,32 +735,32 @@ rownames(train) <- 1:nrow(train)
 rownames(test) <- 1:nrow(test)
 ```
 
-## Initial Full Model(s)    
+## Initial Full Model(s)
 
-Our initial, comprehensive full model encompasses all possible predictors within the Capital Bike Share dataset. Our approach allows us to gain a generalized sense as to the importance and effects our predictors are having in determining our response variable.  
+|       Our initial, comprehensive full model encompasses all possible predictors within the Capital Bike Share dataset. Our approach allows us to gain a generalized sense as to the importance and effects our predictors are having in determining our response variable.
 
 ```{r, fig.width=6, fig.height=6}
 full_model <- lm(count_rentals ~ ., data = train)
 summary(full_model)
 ```
 
+
 \begin{center}
 Initial Full Model
-\end{center}  
+\end{center}
 
-$\hat{{count rentals}}$ = $\beta_0$ + $\beta_1$`holiday` + $\beta_2$`workingday` + $\beta_3$`atemp` + ... + $\beta_{52}$`weather_Type_4`  
+$\hat{{count rentals}}$ = $\beta_0$ + $\beta_1$`holiday` + $\beta_2$`workingday` + $\beta_3$`atemp` + ... + $\beta_{52}$`weather_Type_4`
 
-- $\hat{{count rentals}}$ is the predicted sale price of the house.
-- $\beta_0$ is the intercept.
-- $\beta_1, \beta_2, ... \beta_n$ are the coefficients of the predictor variables.  
+Where $\hat{{count rentals}}$ is the predicted number of rentals, $\beta_0$ is the intercept, and $\beta_1, \beta_2, ... \beta_n$ are the coefficients of the predictor variables.
 
-|       While the full model can provide some insightful information, it is far from refined We found that many of the predictors were found to be statistically insignificant in predicting the response. To refine this full model, we will first inspect the assumptions that multiple linear regression carries. 
+|       While the full model containing all possible predictors can provide some insightful information, it is far from refined. Many of the predictors were found to be statistically insignificant in predicting the response. While we could remove these variables, we will allow step-wise selection to determine the best set of predictors in determining the response. To refine this full model, we will first inspect the assumptions of multiple linear regression.
 
-### Model Assumptions  
 
-#### Normality of Residuals 
+### Model Diagnostics
 
-|       Our residuals should be normally distributed and can be visualized using a Q-Q plot. Deviations from our straight line in the plot would suggest potential non-normality. Currently, our residuals are not normally distributed. 
+#### Normality of Residuals
+
+Our residuals should be normally distributed and can be visualized using a Q-Q plot. Deviations from our straight line in the diagnostic plot would suggest potential non-normality and is confirmed by the formal Kolmogorov-Smirnov Test. We can be certain that our residuals are not normally distributed.
 
 ```{r}
 # Kolmogorov-Smirnov Test - Normality Assumption 
@@ -831,18 +770,23 @@ if (ks$p.value <= 0.05) {
 } else {
   result = paste("H0 failed to reject: the residuals ARE distributed normally")
 }
-
+ks
 # Q-Q plot for residuals
 qqnorm(resid(full_model))
 qqline(resid(full_model))
 ```
 
-#### Homoscedasticity  
+#### Homoscedasticity
 
-|       The homoscedasticity assumption states that we should have residuals ($\epsilon$) with a constant variance. The  funnel-shape we see in our diagnostic plot is indicative of heteroscedasticity, or non-constant variance. Our standard errors, confidence intervals, and subsequently our hypothesis testings rely on the homoscedasticity assumption.   
- 
+The homoscedasticity assumption states that we should have residuals ($\epsilon$) with a constant variance. The funnel-shape we see in our diagnostic plot is indicative of the opposite, heteroscedasticity, or non-constant variance, and is confirmed by our formal Breusch-Pagan Test. Our standard errors, confidence intervals, and subsequently our hypothesis testings rely on the homoscedasticity assumption. 
+
+
+#### Linearity
+
+The linearity assumption states that we should assume the true relationship between our predictors and response variable is a straight-line. We can identify non-linear trends with the red line fit to our residuals. Linearity appears to be violated here, as the upward-curved line is indicative of a non-linear relationship. 
+
 ```{r fig.height=3.5, fig.width=3.5}
-#Breush-Pagan Test - Homoscedasticity Assumption
+#Breusch-Pagan Test - Homoscedasticity Assumption
 library(lmtest)
 bp <- bptest(full_model)
   if (bp$p.value <= 0.05) {
@@ -850,52 +794,47 @@ bp <- bptest(full_model)
   } else {
     result = paste("H0 failed to reject: Error variance spread CONSTANTLY (Homoscedasticity)")
   }
+bp
 print(result)
 plot(full_model, which = 1)
 ```
- 
-#### Linearity  
 
-|       The linearity assumption states that we should assume the true relationship between our predictors and response variable is a straight-line. We can identify non-linear trends with red line fit to our residuals. Linearity appears to be violated here, as the upward-curved line is indicative of a non-linear relationship we are missing.   
 
-```{r fig.height=3.5, fig.width=3.5}
-plot(full_model, which = 1)
-```
 
-#### Multicollinearity   
 
-|       The presense of multicollinearity reduces the accuracy in our model's coefficients by causing our standard errors of coefficients to grow, effectively masking their importance in predicting the response. We can detect multi/collinearity by calculating the variance inflation factor of our model's predictors and subsequently deal with it through either removal of high variance variables or other means. 
+
+#### Multicollinearity
+
+The presense of multicollinearity reduces the accuracy in our model's coefficients by causing our coefficients' standard errors to grow, effectively masking their importance and making interpretation difficult. We can detect multicollinearity by calculating the variance inflation factor of our model's predictors. Our first full model contains a few predictors having VIF values greater than 10 which warrants possible removal from our model to remove multicollinearity.
 
 ```{r}
 library(car)
 df_vif = vif(full_model) %>% data.frame()
 colnames(df_vif) = "VIF"
-df_vif %>% arrange(desc(VIF)) %>% head(8)
+highest_vif <- df_vif %>% arrange(desc(VIF)) %>% head(8)
 ```
 
 #### Independence of Errors
 
-|       Explanation: Our residuals should be independent of each other for our regression to be reliable. Our Capital Bike Share dataset has characteristics of that of time series data. We can visualize this by plotting our residuals and looking for notable patterns. The formal test Durbin-Watson and the pattern of residuals as time proceeds in our plot both confirm that we have indeed violated the assumption of independence of errors. 
+Our residuals should be independent of each other for our regression to be reliable. We can see from the previously mentioned Residuals vs. Fitted Figure that we have evidence of having violated this assumption and can confirm that indeed we have a lack independence of errors from the Durbin-Watson Formal Test. Our test result shows that indeed there is strong evidence of positive autocorrelation.
 
-```{r fig.height=5, fig.width=5}
+```{r fig.height=4, fig.width=4}
 library(lmtest)
 # Durbin-Watson Test
 dwtest(full_model)
-plot(full_model$residuals, main = "Independence of Errors - Violated")
 ```
 
+### Model Improvement
 
-### Model Improvement  
+|       We want our final multiple linear regression model to be robust. To achieve this and bring our assumptions closer to be satisfied, we now proceed with various approaches of addressing issues which may be affecting our model's assumptions.
 
-|       We want our final multiple linear regression model to be robust. To achieve this and bring our assumptions closer to be satisfied, we now proceed with various approaches of addressing issues which may be affecting our model's assumptions. 
+#### Remove Influential Observations
 
-#### Remove Influential Observations     
+We begin by removing observations which we believe may be having too disproportionate an impact on our model's fit. The observations in particularly are likely to affect our model's coefficients, affecting our overall predictive accuracy. These include the three observations with significantly high cook's distances. Each removed observation were of `weather_type_4`. Because of this, the `weather_type_4` variable was consequently removed from the training data set.
 
-|       We begin by removing observations which we believe may be having a too disproportionate an impact on our model's fit. These include the three observations with significantly high cook's distances. Each removed observation were of `weather_type_4`. Because of this, the `weather_type_4` variable consequently was removed from the training data set. 
 ```{r}
-plot(full_model, which = 5)
+cd_plot <- plot(full_model, which = 5)
 ```
-
 
 ```{r fig.height=12, fig.width=12}
 #Rownames were reset during train/test split
@@ -904,11 +843,9 @@ train <- train[-c(out_lev), ]
 train <- train %>% dplyr::select(-`weather_Type 4`)
 ```
 
-#### Target Variable Transformation   
+#### Target Variable Transformation
 
-|       The linearity and homoscedasticity assumptions can both possibly be addressed with a transformation to the response variable.   
-
-|       We considered multiple transformations to approach normality, including, the Box-cox, logarithmic, square-root, cube-root, and fourth-root transformations. For each of our target variables, the transformation which approximated normality (closest skewness value to 0) the closest was the **cube-root** transformation. As a result, when we proceed with the final multiple linear regression fitting, we will predict the cube-root transformed version of our target variable `cube_root_total`.
+We considered multiple transformations to approach normality and address the linearity and homoscedasticity assumptions, including, the Box-cox, logarithmic, square-root, cube-root, and fourth-root transformations. For each of our target variables, the transformation which approximated normality (skewness value to 0) the closest was the **cube-root** transformation. Therefore, we will predict the cube-root transformed version of our target variable `cube_root_total` for the final model.
 
 ```{r}
 library(MASS)
@@ -943,13 +880,14 @@ ggTrans <- function(var, myTitle) {
 }
 ```
 
-```{r}
+```{r fig.height=8, fig.width=3}
 #Inspect Distributions
-ggTrans(cube_root_total, "Cube Root Transformation")
-ggTrans(box_total, "Box-Cox Transformation")
-ggTrans(fourth_root_total, "Fourth Root Transformation")
-ggTrans(sqrt_total, "Square Root Transformation")
-ggTrans(log_total, "Log Transformation")
+pl1 <- ggTrans(cube_root_total, "Cube Root Transformation")
+pl2 <- ggTrans(box_total, "Box-Cox Transformation")
+pl3 <- ggTrans(fourth_root_total, "Fourth Root Transformation")
+pl4 <- ggTrans(sqrt_total, "Square Root Transformation")
+pl5 <- ggTrans(log_total, "Log Transformation")
+trans_total <- ggarrange(pl1, pl2, pl3, pl4, pl5, nrow = 5, ncol = 1)
 ```
 
 ```{r}
@@ -958,18 +896,18 @@ train$cube_root_total <- (train$count_rentals)^(1/3)
 test$cube_root_total <- (test$count_rentals)^(1/3)
 ```
 
-#### Multicollinearity  
+#### Multicollinearity
 
-|       We opted to remove the influences of multicollinearity in our models via removing the variables which had the highest variance inflation factors one at a time. The two variables that were removed were `workingday`, and `season_Summer`.
+We opted to remove the influences of multicollinearity in our models via removing the variables which had the highest variance inflation factors(VIF > 10) one at a time. The two variables that were removed were ultimately removed were `workingday`, and `season_Summer`.
 
 ```{r, fig.width=7, fig.height=7}
 #Could remove workingday & season_Summer from train df
 train <- train %>% dplyr::select(-c( workingday, season_Summer))
 ```
 
-## Stepwise Selection (Final Reduced Model)    
+## Final Reduced Model Using Stepwise Selection
 
-|       Using step-wise selection, we identified a subset of predictors using a combination of forward and backward selection. These variables were determined to be the best set of predictors using stepwise in predicting the transformed response, `cube_root_total`.  
+|       Using step-wise selection, we identified an optimal subset of predictors. These variables were determined to be the best set of predictors in predicting the transformed response, `cube_root_total`.
 
 ```{r fig.height=5, fig.width=8.5}
 library(leaps)
@@ -977,14 +915,7 @@ OLS.regback <- leaps::regsubsets(cube_root_total ~ . - count_rentals, train, met
 OLSregbacksum <- summary(OLS.regback)
 ```
 
-|       Our team believes that two of the best metrics for explaining model fit are Adjusted R2 and Bayesian Information Criterion (BIC). Both of these metrics help us determine models which balance goodness-of-fit and complexity. We seek to maximize Adjusted R2 and minimize BIC. Our step-wise selection found a model which meets that criterion and can be represented as:
-
-\begin{center}
-Final Model Equation
-\end{center}  
-
-`cube_root_total` = $\beta_0$ + $\beta_1$`holiday` + $\beta_2$`atemp` + $\beta_3$`hum` + $\beta_4$`season_Spring` + $\beta_5$`season_Fall` + $\beta_6$`year_2012` + $\beta_7$`month_May` + $\beta_8$`month_Aug` + $\beta_9$`month_Sep` +$\beta_{10}$`day_Friday` + $\beta_{11}$`day_Saturday` + $\beta_{12}$`hour_1:00PM` + $\beta_{13}$`hour_10:00AM` + $\beta_{14}$`hour_10:00PM` + $\beta_{15}$`hour_11:00AM` + $\beta_{16}$`hour_11:00PM` + $\beta_{17}$`hour_12:00AM` + $\beta_{18}$`hour_12:00PM` + $\beta_{19}$`hour_2:00AM` + $\beta_{20}$`hour_2:00PM` + $\beta_{21}$`hour_3:00AM` + $\beta_{22}$`hour_3:00PM` + $\beta_{23}$`hour_4:00AM` + $\beta_{24}$`hour_4:00PM` + $\beta_{25}$`hour_5:00AM` + $\beta_{26}$`hour_5:00PM` + $\beta_{27}$`hour_6:00AM` + $\beta_{28}$`hour_6:00PM` + $\beta_{29}$`hour_7:00AM` + $\beta_{30}$`hour_7:00PM` + $\beta_{31}$`hour_8:00AM` + $\beta_{32}$`hour_8:00PM` + $\beta_{33}$`hour_9:00AM` + $\beta_{34}$`hour_9:00PM` + $\beta_{35}$`weather_Type_2` + $\beta_{36}$`weather_Type_3` + $\epsilon$ 
-
+|       Our team believes that two of the best metrics for determining model fit are Adjusted $R^2$ and Bayesian Information Criterion (BIC). Both of these metrics help determine models which balance goodness-of-fit and complexity. We seek to maximize Adjusted $R^2$ and minimize BIC. Our step-wise selection found a final model which meets that criterion and can be seen in the Appendix as Figure Z with a visualization depicting the change in $R^2$ and BIC in Figure Z. 
 
 ```{r fig.height=8, fig.width=8.5}
 adjr2mat <- data.frame(t(OLSregbacksum$adjr2))
@@ -1075,7 +1006,6 @@ colname = train_final %>% names()
 train_final <- train_final %>% rename(cube_root_total = colname[length(colname)])
 ```
 
-
 ```{r}
 #Train Final Model - Success (Same coef as original)
 stepwise_model <- lm(cube_root_total ~ .  ,data = train_final)
@@ -1084,28 +1014,54 @@ summary(stepwise_model)
 
 ### Interpretation of Model Coefficients
 
-|       From our step-wise model, the three variables with the most significant impact on the expected number of total rentals are `hour_5:00PM`, `hour_6:00PM`, and `hour_8:00AM`, 
+|       From our step-wise model, the three variables with the most significant impact on the expected number of total rentals are `hour_5:00PM`, `hour_6:00PM`, and `hour_8:00AM`.
 
-|       For instance, when our `hour_5:00PM` variable is 1(True), holding other variables constant, the cube root number of bicycle rentals is expected to increase by 4.22167. In other words, if we back-transform(apply cubic) our coefficient value for interpretability, the number of bicycle rentals is expected to increase by 75.24.
+|       For instance, when our `hour_5:00PM` variable is 1(True), holding other variables constant, the cube root number of bicycle rentals is expected to increase by 4.22167. In other words, if we back-transform(apply cubic) our coefficient value for interpretability, the number of bicycle rentals is expected to increase by 75.24. This procedure of coefficient interpretation applies to all coefficients in our model. In the case of continuous variables, such as `atemp`, the expected increase in the number of bicycle rentals is determined by a one unit increase in the predictor value.
 
 ```{r fig.height=7, fig.width=6}
 library(coefplot)
 coefplot::coefplot(stepwise_model, sort = "magnitude", decreasing = TRUE) 
 ```
 
-### Final Model Diagnostics 
+### Model Diagnostics
 
-#### Normality of Residuals  
+|       Our approaches to satisfy the assumptions mentioned during the first full model fitting were promptly addressed with our transformation of the response variable via a cube root transformation, removal of over-influential observations, and high variance inflation variables. The 
 
-#### Homoscedasticity   
+|       Despite our approach, we did observe some potential violations of regression assumptions in homoscedasticity, linearity, and normality/independence of residuals. The multicollinearity assumption was satisfied due to our removing of high variance inflation variables.  
 
-#### Linearity  
+|       In practice, however, the assumptions are rarely validated. After employing our corrective measures and observing the resulting vastly improved diagnostic plots, we remain confident in our model's predictive capabilities and generalizability. Our attempts at rectifying our assumptions helped to stabilize our coefficients, and ensure that our model contains variables meaningful in determining our target.
 
-#### Multicollinearity  
+```{r fig.height=5, fig.width=5}
+#Linearity-Homoscedasticity
+plot(stepwise_model, which = 1, main = "Evaluation of Homoscedasticity and Linearity")
 
-#### Independence of Errors
+# Kolmogorov-Smirnov Test - Normality Assumption 
+ks <- ks.test(stepwise_model$residuals, 'pnorm')
+if (ks$p.value <= 0.05) {
+  result = paste("H0 rejected: Non-Normal residuals")
+} else {
+  result = paste("H0 failed to reject: the residuals ARE distributed normally")
+}
+ks
 
-### Test Set Evaluation - Predicting Bicycle Rentals 
+# Q-Q plot for residuals (Normality of Residuals)
+qqnorm(resid(stepwise_model))
+qqline(resid(stepwise_model))
+
+# Durbin-Watson Test (Independence of Residuals)
+dwtest(stepwise_model)
+
+#Multicollinearity
+vif_final <- vif(stepwise_model) %>% data.frame()
+vif_final <- vif_final %>% rename(Highest_VIF_Values = ".") %>% arrange(desc(Highest_VIF_Values))
+vif_final %>% head(5)
+```
+
+### Test Set Evaluation - Model Performance  
+
+|       Utilizing the final step-wise model determined above, we tested our model's performance by making predictions on the test set. Because we applied a cube-root transformation to our target variable `cube_root_total`, we **back-transform** these predicted/fitted values for interpretability. Doing so allows us to draw meaningful interpretation from our model's performance in the original units.  
+
+|       We have provided the Root Mean Squared Error(RMSE), $R^2$, and Mean Absolute Error(MAE). RMSE and MAE are measured in the same units as the target variable and thus have a meaningful interpretation. MAE for example, is the "on-average" error between the predicted value and the true number of bike rentals, which for our model is approximately **63** rentals. Additionally, our $R^2$ value is approximately 0.734, meaning that 73.4% of the variability in the number of bike rentals is explained by our model which tells us that our model is a strong fit and is generalizable to new data predictions.
 
 ```{r}
 #Make Predictions
@@ -1113,56 +1069,62 @@ pred_values_total_rentals <- predict(stepwise_model, newdata = test) %>% data.fr
 pred_values_total_rentals$fit = (pred_values_total_rentals$.)^3
 pred_values_total_rentals$obs = (test$cube_root_total)^3
 
+
 #Return Metrics
 metrics <- function(y_pred, y_true){
- rmse <- RMSE(y_pred, y_true)
- mse <- mean((y_pred - y_true)^2)
- mae <- MAE(y_pred, y_true)
- corPredAct <- cor(y_pred, y_true)
+ rmse <- RMSE(y_pred, y_true) %>% round(2)
+ mse <- mean((y_pred - y_true)^2) %>% round(2)
+ mae <- MAE(y_pred, y_true) %>% round(2)
+ corPredAct <- cor(y_pred, y_true) %>% round(3)
  df = data.frame(Root_Mean_Squared_Error = rmse,
-                 Mean_Squared_Error = mse,
                  Mean_Absolute_Error = mae,
-                 Corr_Between_Pred_Obs = corPredAct,
-                 R_squared_Pred_Obs = corPredAct*corPredAct)
+                 R_squared_Pred_Obs = (corPredAct*corPredAct) %>% round(3))
  df <- df %>% t() %>% data.frame()
- df <- df %>% rename(Test_Error_Metrics = ".")
+ df <- df %>% rename(Metric = ".")
  return (df)
 }
 model_metrics_df = metrics(y_pred = pred_values_total_rentals$fit,
                            y_true = pred_values_total_rentals$obs)
-
 ```
 
-```{r fig.height=5, fig.width=5}
+```{r fig.height=5, fig.width=7}
 #Total Rentals Predicts vs. Observed Values
-ggplot(pred_values_total_rentals, aes(x=fit, y=obs)) +
+a_v_p_plot <- ggplot(pred_values_total_rentals, aes(x=fit, y=obs)) +
   geom_point(aes(color = abs(obs - fit)), size = 3, alpha = 0.6) + 
   geom_abline(intercept=0, slope=1, linetype="dashed", color="red") +
   scale_color_viridis_c(option = "B", direction = -1) + 
   labs(
     title = "Actual vs Predicted Number of Total Rentals",
+    subtitle = paste("Average Prediction Error(Mean Absolute Error): ", model_metrics_df$Metric[2], "bike rentals"),
     y = "Actual Number of Rentals",
     x = "Predicted Number of Rentals",
     color = "Residual Magnitude") +
   scale_x_continuous(breaks = seq(0, 1000, 250), labels = seq(0,1000,250)) +
-   scale_y_continuous(breaks = seq(0, 1000, 250), labels = seq(0,1000,250))
+   scale_y_continuous(breaks = seq(0, 1000, 250), labels = seq(0,1000,250)) +
+  theme(legend.position = "bottom",
+        axis.text= element_text(face = "bold",
+                                   size = 12),
+        plot.title = element_text(face = "bold",
+                                  size = 16))
 ```
 
-#### Model Performance
+# Conclusions
 
-```{r}
-model_metrics_df
-```
+|       The Capital Bike Share dataset analysis revealed insightful patterns and statistics in pursuit of variables which were used in formulating a reliable multiple linear regression model. Significant influences found when examining the distributions of features such as the hour of the day and real feel Celsius temperature, help us understand what drives the number of total rentals.
 
-# Conclusions and Recommendations 
+|       Our final model provides a concise selection of key predictors, allowing us to filter out non-meaningful features which would otherwise prove irrelevant. Our approach allows us to ultimately make accurate, and reliable predictions as to the number of Capital Bike Share rentals.
 
-Capital Bike Share Needs to Capitalize on the trend of registered riders using it as a primary mode of transportation and set of locations at major areas of work and near residential areas where people can get easy access to these bikes. This will increase the number of registered riders. 
+## Recommendations
+
+|       Based on the hourly working day commute trends showing commutes to and from the workplace as being a major driving force in the number of rentals, and the extreme prevalence and significance of the hour variables present in our final model, we believe we have a strong recommendation for Capital Bike Share.
+
+|       There can be no doubt that registered commuters are utilizing bicycles as their primary mode of transportation during workplace commutes. Capital Bike Share can capitalize on this, by installing/placing additional bicycle kiosks in key residential and traffic heavy work-place zones. Doing so would incentivize additional bike rentals by permitting commuters a reliable source of transportation and ultimately increasing the number of bicycle rentals.
 
 \pagebreak
 
-# Appendix 
+# Appendix
 
-```{r include = TRUE, echo = TRUE, eval = FALSE}
+```{r include = FALSE, echo = FALSE, eval = FALSE}
 #Visualize for Missing Data
 vis_miss(CBS, sort_miss = T) + 
   labs(y = "NA Values") +
@@ -1170,24 +1132,213 @@ vis_miss(CBS, sort_miss = T) +
   coord_flip()
 ```
 
-```{r echo=FALSE, fig.align='center', fig.cap="No missing values in dataset", fig.show='hold', fig.width=7, include=TRUE}
+```{r echo=FALSE, fig.align='center', fig.cap="No missing values in dataset", fig.height=3, fig.show='hold', fig.width=6, include=TRUE}
 fig.1
 ```
 
-```{r include = TRUE, echo = TRUE, eval = FALSE}
-#Visualize for Missing Data
+```{r include = FALSE, echo = FALSE, eval = FALSE}
+#Visualize Data Types
 vis_dat(CBS) + theme(axis.title.y = element_blank(),
                      axis.text.x.bottom = element_blank()) +
   labs(title = "Data Types of Capital Bike Share Dataset") +
   scale_fill_brewer(palette = 2)
-```
+``` 
 
-```{r echo=FALSE, fig.align='center', fig.cap="Pre-Assigned Variable Data Types", fig.show='hold', fig.width=7, include=TRUE}
+
+```{r echo=FALSE, fig.align='center', fig.cap="Pre-assigned Variable Data Types", fig.height=2.2, fig.show='hold', fig.width=6, include=TRUE}
 fig.2
 ```
 
+```{r echo=FALSE, fig.align='center', fig.cap="Reassigned Variable Data Types", fig.height=2.7, fig.show='hold', fig.width=6, include=TRUE}
+datatype_plot
+```
+
+```{r echo=FALSE, fig.align='center', fig.cap="Distribution of Target Variable", fig.show='hold', fig.width=5, include=TRUE}
+target_plot
+```
+
+```{r fig.height=4, fig.width=4.5, echo=FALSE, fig.align='center', fig.cap="Continuous Variables Distribution", fig.show='hold', include=TRUE}
+cont_plot
+```
+
+```{r fig.height=4, fig.width=8.5, echo=FALSE, fig.align='center', fig.cap="Continuous Variables Summary Statistics", fig.show='hold', include=TRUE}
+#Summary Statistics of Continuous Variables 
+datatable(numVars, class = 'cell-border stripe', options = list(searching = FALSE,
+                                                                dom = 't'))
+```
+
+\pagebreak
+
+```{r fig.height=2.2, fig.width=4.5, echo=FALSE, fig.align='center', fig.cap="Boolean Variables Distribution", fig.show='hold', include=TRUE}
+bool_plot
+```
+
+
+```{r fig.height=4, fig.width=8,  echo=FALSE, fig.align='center', fig.cap="Distributions of `season`, `year`, `month`, and `day`", fig.show='hold', include=TRUE}
+cat_plot_1 <- ggarrange(season_plot, year_plot, month_plot, day_plot)
+cat_plot_1
+```
+
+
+```{r fig.height=5, fig.width=7.5, echo=FALSE, fig.align='center', fig.cap="Distributions of `hour`, and `weather`", fig.show='hold', include=TRUE}
+cat_plot_2 <- ggarrange(hour_plot, weather_plot, nrow = 2, ncol = 1)
+cat_plot_2
+```
+
+```{r fig.height=3, fig.width=5,  fig.align='center', fig.cap="Dates with Low Number of Observations",  include=TRUE}
+date_plot
+```
+
+```{r fig.height=6, fig.width=6,  fig.align='center', fig.cap="Correlation Matrix and Continuous Variables Relationship with Target Variable",  include=TRUE}
+corr_mat <- chart.Correlation(corr_df)
+corr_mat
+```
+
+
+```{r fig.height=4, fig.width=5,  fig.align='center', fig.cap="High Leverage Points Between `temp` and `atemp`",  include=TRUE}
+temp_mult_plot
+```
+
+```{r fig.height=4, fig.width=5,  fig.align='center', fig.cap="Smooth Curve of Rental with Peak Usage Around Midday",  include=TRUE}
+ss_plot
+```
+
+
+```{r fig.height=8, fig.width=6,  fig.align='center', fig.cap="Low Casual Usage Throughout Working Days",  include=TRUE}
+wk_cas
+```
+
+
+```{r fig.height=8, fig.width=6,  fig.align='center', fig.cap="Registered Work Commute Usage",include=TRUE}
+reg_plot
+```
+
+
+```{r fig.height=8, fig.width=6,  fig.align='center', fig.cap="Total Rentals Work Commute Usage", include=TRUE}
+tot_plot
+```
 
 
 
+```{r fig.height=8, fig.width=5,  fig.align='center', fig.cap="Zero in Confidence Intervals - Insignificant Predictor", include=TRUE}
+coefplot::coefplot(full_model, sort = "magnitude", decreasing = TRUE) + labs(title = "Initial Full Model Coefficients", x = "Coefficient Value", y = "Predictor")
+```
+\pagebreak 
+
+```{r fig.height=5, fig.width=5,  fig.align='center', fig.cap="Normality of Residuals Assumption - Violated", echo = FALSE, include=TRUE}
+# Kolmogorov-Smirnov Test - Normality Assumption 
+ks.test(full_model$residuals, 'pnorm')
+if (ks$p.value <= 0.05) {
+  print("H0 rejected: Residuals are NOT normally distributed")
+} else {
+  print("H0 failed to reject: the residuals ARE distributed normally")
+}
+
+# Q-Q plot for residuals
+qqnorm(resid(full_model))
+qqline(resid(full_model))
+``` 
+
+```{r fig.height=5, fig.width=5,  fig.align='center', fig.cap="Homoscedasticity and Linearity Assumptions - Violated", echo = FALSE, include=TRUE}
+#Breusch-Pagan Test - Homoscedasticity Assumption
+bp <- bptest(full_model)
+  if (bp$p.value <= 0.05) {
+    print("H0 rejected: Error variance spread INCONSTANTLY (Heteroscedasticity)")
+  } else {
+    print("H0 failed to reject: Error variance spread CONSTANTLY (Homoscedasticity)")
+  }
 
 
+plot(full_model, which = 1)
+```
+
+\pagebreak 
+
+```{r fig.cap="No Multicollinearity Assumption - Violated", echo = FALSE, include=TRUE}
+print.noquote("Below: Highest Variance Inflation Factors of Full Model")
+highest_vif
+print.noquote("---")
+```
+\pagebreak 
+
+```{r fig.height=5, fig.width=5,  fig.align='center', fig.cap="Influential Observations", echo = FALSE, include=TRUE}
+plot(full_model, which = 5)
+```
+
+```{r fig.height=8, fig.width=5,  fig.align='center', fig.cap="Cube Root Transformation Closest Skewness Value to Zero", include=TRUE}
+trans_total
+```
+
+
+\pagebreak 
+
+
+\begin{center}
+Final Model Equation
+\end{center}
+
+
+`cube_root_total` = $\beta_0$ + $\beta_1$`holiday` + $\beta_2$`atemp` + $\beta_3$`hum` + $\beta_4$`season_Spring` + $\beta_5$`season_Fall` + $\beta_6$`year_2012` + $\beta_7$`month_May` + $\beta_8$`month_Aug` + $\beta_9$`month_Sep` +$\beta_{10}$`day_Friday` + $\beta_{11}$`day_Saturday` + $\beta_{12}$`hour_1:00PM` + $\beta_{13}$`hour_10:00AM` + $\beta_{14}$`hour_10:00PM` + $\beta_{15}$`hour_11:00AM` + $\beta_{16}$`hour_11:00PM` + $\beta_{17}$`hour_12:00AM` + $\beta_{18}$`hour_12:00PM` + $\beta_{19}$`hour_2:00AM` + $\beta_{20}$`hour_2:00PM` + $\beta_{21}$`hour_3:00AM` + $\beta_{22}$`hour_3:00PM` + $\beta_{23}$`hour_4:00AM` + $\beta_{24}$`hour_4:00PM` + $\beta_{25}$`hour_5:00AM` + $\beta_{26}$`hour_5:00PM` + $\beta_{27}$`hour_6:00AM` + $\beta_{28}$`hour_6:00PM` + $\beta_{29}$`hour_7:00AM` + $\beta_{30}$`hour_7:00PM` + $\beta_{31}$`hour_8:00AM` + $\beta_{32}$`hour_8:00PM` + $\beta_{33}$`hour_9:00AM` + $\beta_{34}$`hour_9:00PM` + $\beta_{35}$`weather_Type_2` + $\beta_{36}$`weather_Type_3` + $\epsilon$
+
+
+```{r fig.height=8, fig.width=4,  fig.align='center', fig.cap="Assumption Corrections and High Leverage Removal", echo = FALSE, include=TRUE}
+print.noquote("Below: Variance Inflation Factors of Final Model")
+vif(stepwise_model)
+print.noquote("---")
+
+# Kolmogorov-Smirnov Test - Normality Assumption 
+ks.test(stepwise_model$residuals, 'pnorm')
+bptest(stepwise_model)
+
+# Q-Q plot for residuals
+par(mfrow = c(3,1))
+qqnorm(resid(stepwise_model))
+qqline(resid(stepwise_model))
+plot(stepwise_model, which = 1)
+plot(stepwise_model, which = 5)
+```
+
+\pagebreak
+
+```{r fig.height=10, fig.width=9,  fig.align='center', fig.cap="Stepwise Selection Model Evaluations(BIC/RSquared/Mallows Cp/RSS)", include=TRUE}
+par(mfrow = c(2,2))
+plot(OLSregbacksum$adjr2, xlab = "Number of Variables",
+    ylab = "Adjusted RSq", type = "l", lwd = 1.5, main = "Number of Variables Vs. Adjusted R2",
+    sub = paste("Best Adjusted RSq Value: " , adjr2 ),
+    cex.main = 1.15, cex.lab = 1, cex.axis = 1.05, font.axis = 2,
+    font.lab = 2, panel.first = grid(nx = NULL, ny = NULL, col = "gray",
+        lty = 2))
+points(36, OLSregbacksum$adjr2[36], col = "darkred", cex = 2, pch = 20) 
+
+plot(OLSregbacksum$cp, xlab = "Number of Variables", ylab = "Cp",
+    type = "l", lwd = 1.5, cex.main = 1.15, cex.lab = 1, cex.axis = 1.05,
+    font.axis = 2, font.lab = 2, main = "Number of Variables Vs. Mallow's Cp",
+    sub = paste("Best Mallow's Cp Value: " , cp ),
+    panel.first = grid(nx = NULL, ny = NULL, col = "gray", lty = 2))
+points(36, OLSregbacksum$cp[36], col = "darkred", cex = 2, pch = 20)
+
+plot(OLSregbacksum$bic, xlab = "Number of Variables", ylab = "BIC",
+    type = "l", lwd = 1.5, cex.main = 1.15, cex.lab = 1, cex.axis = 1.05,
+    font.axis = 2, font.lab = 2, main = "Number of Variables Vs. BIC",
+            sub = paste("Best BIC Value: " , bic ),
+    panel.first = grid(nx = NULL, ny = NULL, col = "gray", lty = 2))
+points(36, OLSregbacksum$bic[36], col = "darkred", cex = 2, pch = 20)
+
+plot(OLSregbacksum$rss, xlab = "Number of Variables", ylab = "RSS",
+    type = "l", lwd = 1.5, cex.main = 1.15, cex.lab = 1, cex.axis = 1.05,
+    font.axis = 2, font.lab = 2, main = "Number of Variables Vs. RSS",
+    panel.first = grid(nx = NULL, ny = NULL, col = "gray", lty = 2))
+``` 
+
+\pagebreak
+
+```{r fig.height=8.5, fig.width=5.5,  fig.align='center', fig.cap="Predictors for Final Stepwise Model", include=TRUE}
+coefplot::coefplot(stepwise_model, sort = "magnitude", decreasing = TRUE) + labs(title = "Final Stepwise Model Variable Coefficients", x = "Coefficient Value", y = "Predictor") 
+```
+\pagebreak  
+
+```{r fig.height=9, fig.width=9,  fig.align='center', fig.cap="Predictions Using the Test Dataset", include=TRUE}
+a_v_p_plot
+```
+
+\pagebreak  
