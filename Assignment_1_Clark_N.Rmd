@@ -38,7 +38,7 @@ theme_set(theme_minimal())
 
 |       Capital Bike Share provides a network of bicycles to the denizens of the Washington D.C. region. We were approached by Capital Bike Share to delve into their dataset observations across 2011 and 2012. Preliminary insights revealed that rental demand can be affected by a variety of influential factors.
 
-|        We examined multi-variable trends and deliberated on insightful patterns. Based on our early findings, we suspected rentals being driven by bicycles being used as a primary mode of transportation during work-commute hours. Furthermore, our resulting model confirmed our preliminary analysis, as it was ultimately determined that hour and temperature variables and were among the most significant factors in accurately predicting bicycle rentals.
+|        We examined multi-variable trends and deliberated on insightful patterns. Based on our early findings, we suspected rentals being driven by bicycles being used as a primary mode of transportation during work-commute hours. Furthermore, our resulting model confirmed our preliminary analysis, as it was ultimately determined that hour and temperature variables were among the most significant factors in accurately predicting bicycle rentals.
 
 # Problem Statement and Approach
 
@@ -147,7 +147,7 @@ print(paste("Number of observations/rows: ", dim(CBS)[1]))
 print(paste("Number of columns/variables: ", dim(CBS)[2]))
 ```
 
-## Exploratory Data Analysis (EDA)
+## Exploratory Data Analysis
 
 ### Target Variable
 
@@ -170,7 +170,7 @@ numSummary = function(var, rowname) {
 
 #### `count_rentals`
 
-The variable we aim predict is the total hour-by-hour number of bicycle rentals, `count_rentals`. Our target variable's distribution shows us that `count_rentals` is highly right skewed~[Appendix-Fig.4]~. There is serious variability in the hour-by-hour rentals, with a minimum of a single rental to a maximum of nearly a thousand rentals per hour, but with 50% of our observations being less than the median of **142** rentals. 
+The variable we aim predict is the total hour-by-hour number of bicycle rentals, `count_rentals`. Our target variable's distribution shows us that `count_rentals` is highly right skewed~[Appendix-Fig.4]~. There is serious variability in the hour-by-hour rentals, with a minimum of a single rental to a maximum of nearly a thousand rentals per hour, but with 50% of our observations being less than the median of 142 rentals. 
 
 ```{r}
 #Retrieve summary statistics for count_rentals
@@ -370,7 +370,7 @@ weather_plot <- CBS %>%
 
 ##### `date`
 
-The `date` distribution revealed that not every unique value of date has an expected equivalent number of hourly interval measurements. The majority of each of the **731** distinct date values contained twenty-four or twenty-three of the expected hourly observations. However, fourteen of the dates contained fewer, which in turn ultimately equated to **103** hours worth of missing possible observations~[Appendix-Fig.8]~. 
+The `date` distribution revealed that not every unique value of date has an expected equivalent number of hourly interval measurements. The majority of each of the 731 distinct date values contained twenty-four or twenty-three of the expected hourly observations. However, fourteen of the dates contained fewer, which in turn ultimately equated to 103 hours worth of missing possible observations~[Appendix-Fig.8]~. 
 
 ```{r}
 #Retrieve summary statistics for temp
@@ -472,7 +472,7 @@ cont_plot
 
 Inspection of `holiday` revealed dates which were incorrectly labeled. We re-labeled these observations based on official [federally recognized holidays](https://www.commerce.gov/hr/employees/leave/holidays).
 
-|       2011-01-01, 2011-12-25, 2012-01-01, and 2012-11-11 were incorrectly mislabeled as *not* being holidays. 2011-12-26, 2012-01-02, and 2012-11-12 were mislabeled as **being** holidays. 2011-04-15 and 2012-04-16 are dates of observance for Emancipation Day in the Washington D.C. Area. Due to the holiday-like observance of Emancipation Day in our area of interest, these two dates will be labeled as holidays.
+|       2011-01-01, 2011-12-25, 2012-01-01, and 2012-11-11 were incorrectly mislabeled as *not* being holidays. 2011-12-26, 2012-01-02, and 2012-11-12 were mislabeled as *being* holidays. 2011-04-15 and 2012-04-16 are dates of observance for Emancipation Day in the Washington D.C. Area. Due to the holiday-like observance of Emancipation Day in our area of interest, these two dates will be labeled as holidays.
 
 ```{r}
 holidayDates <- CBS[CBS$holiday == TRUE,]
@@ -678,7 +678,7 @@ tot_plot <- CBS[!(CBS$day %in% c("Sunday", "Saturday")),] %>%
 
 ## Feature Reduction
 
-`date` - Our team reasoned that creation of **730** dummy variables representing `date` could have severe impacts (high VIF and overfitting) on model performance. No unique information is provided by `date` that is not already found in our `year`,  `month`, and `day` variable. Because of this, we have decided to disregard the `date` variable from the modeling process.  
+`date` - Our team reasoned that creation of 730 dummy variables representing `date` could have severe impacts (high VIF and overfitting) on model performance. No unique information is provided by `date` that is not already found in our `year`,  `month`, and `day` variable. Because of this, we have decided to disregard the `date` variable from the modeling process.  
 
 |       Additionally, being that `instant` is merely an identifier, it will also be disregarded. Lastly, being that our target variable is the exact sum of `casual` and `registered`, inclusion of these two would make our predictions arbitrary. We likewise disregarded these from our modeling and assume this information is unknown during predictions.
 
@@ -1045,7 +1045,7 @@ vif_final %>% head(5)
 
 |       Here we discuss the test performance metrics of Root Mean Squared Error(RMSE), $R^2$, and Mean Absolute Error(MAE). RMSE and MAE are measured in the same units as the original target variable and thus have a meaningful interpretation.  MAE for example, is the "on-average" error between the predicted value and the true number of bike rentals, which for our model is approximately **63** rentals. Additionally, our $R^2$ value is approximately 0.733, meaning that 73.3% of the variability in the number of bike rentals is explained by our model. Our RMSE is approximately 95.5, which is indicative of strong, predictive accuracy in our model~[Appendix-Pg:48]~.
 
-|       From our visualization displaying predictions versus true observational values, we see that our residuals are fairly small when the number of actual rentals are low. The residuals slightly increase in magnitude as we make predictions for larger numbers of rentals which inflates our performance metrics~[Appendix-Fig.21]~. Overall, we believe this model to be of high quality and generalizable to new data.  
+|       From our visualization displaying predictions versus true observational values, we see that our residuals are fairly small when the number of actual rentals are low. The residuals slightly increase in magnitude as we make predictions for larger numbers of rentals which negatively impacts our performance metrics~[Appendix-Fig.21]~. Overall, we believe this model to be of high quality and generalizable to new data.  
 
 
 ```{r}
