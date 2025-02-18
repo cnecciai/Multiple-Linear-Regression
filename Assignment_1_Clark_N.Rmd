@@ -1,6 +1,6 @@
 ---
 title: "Capital Bike Share Predictive Model Report"
-author: "Prepared By: Clark P. Necciai Jr."
+author: "Prepared By: Clark P Necciai Jr"
 date: "`r format(Sys.Date(), '%B %d, %Y')`"
 output:
   pdf_document:
